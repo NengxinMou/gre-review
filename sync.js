@@ -115,6 +115,7 @@
     }
     status();
     return { sync, resolve, changed() {
+      status();
       if (busy) again = true;
       else if (changeDelayMs) { clearTimeout(changeTimer); changeTimer = setTimeout(() => void sync(), changeDelayMs); }
       else void sync();
