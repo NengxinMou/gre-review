@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f9f8">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="GRE 复习">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>GRE 词义复习</title>
+  <link rel="stylesheet" href="styles.css">
+<meta name="gre-deployment" content="github-pages"><meta name="gre-storage-key" content="gre-review-github-pages-v1"></head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-gre">GRE</span><span>词义复习</span></div>
+      <nav class="topnav" aria-label="主导航">
+        <button class="nav-tab active" data-view="study">学习</button>
+        <button class="nav-tab" data-view="daily">每日复习 <span id="daily-due-count" class="daily-badge">0</span></button>
+        <button class="nav-tab" data-view="mistakes">错词</button>
+        <button class="nav-tab" data-view="stats">统计</button>
+        <button class="nav-tab" data-view="settings">设置</button>
+      </nav>
+      <span class="local-label" id="local-label">本地保存</span>
+    </header>
+
+    <div class="workspace">
+      <aside class="list-rail" aria-label="词表目录">
+        <div class="rail-heading"><strong>词表目录</strong><span>30 个 List</span></div>
+        <button class="list-item all-list" data-list="all"><span>全部词表</span><span id="all-due-count">0</span></button>
+        <div class="list-scroll" id="list-nav"></div>
+      </aside>
+
+      <main class="main-pane">
+        <div class="mobile-list-row"><label for="mobile-list">当前词表</label><select id="mobile-list"></select></div>
+        <div class="pane-top"><span id="section-label">List 1</span><span id="pane-date"></span></div>
+
+        <section id="study-view" class="view active" aria-label="学习">
+          <div id="study-home" class="study-home">
+            <p class="eyebrow" id="home-label">LIST 1</p>
+            <h1 id="home-title">今天从这里开始</h1>
+            <div class="home-metrics">
+              <div><strong id="home-due">0</strong><span>到期复习</span></div>
+              <div><strong id="home-new">50</strong><span id="home-new-label">未见过</span></div>
+              <div><strong id="home-mastered">0</strong><span>已掌握</span></div>
+            </div>
+            <div class="home-controls">
+              <label for="batch-size">本轮词数</label>
+              <select id="batch-size"><option value="5" selected>5 词</option><option value="10">10 词</option><option value="20">20 词</option></select>
+              <button class="primary-button" id="start-session">开始本轮</button>
+            </div>
+            <p class="home-note" id="home-note"></p>
+          </div>
+
+          <div id="study-card" class="study-card" hidden>
+            <div class="card-top"><span id="card-source"></span><div class="card-tools"><button type="button" id="undo-answer" class="icon-button" title="撤回上一次答题" aria-label="撤回上一次答题" disabled><i data-lucide="undo-2" aria-hidden="true"></i></button><button type="button" id="replay-word" class="icon-button" title="重播美式发音" aria-label="重播美式发音"><i data-lucide="play" aria-hidden="true"></i></button><button type="button" id="mute-audio" class="icon-button" title="静音" aria-label="静音" aria-pressed="false"><span id="audio-on-icon"><i data-lucide="volume-2" aria-hidden="true"></i></span><span id="audio-off-icon" hidden><i data-lucide="volume-x" aria-hidden="true"></i></span></button><span id="card-count"></span></div></div>
+            <div id="audio-status" class="audio-status" role="status"></div>
+            <div class="audio-credit"><a id="audio-attribution" target="_blank" rel="noopener noreferrer" hidden></a></div>
+            <div class="word-stage">
+              <div class="word-main" id="card-word"></div>
+              <p id="recall-prompt">回想这份词表里的 GRE 释义</p>
+              <div id="answer-panel" class="answer-panel" hidden><span>词表释义</span><strong id="card-meaning"></strong></div>
+            </div>
+            <div class="card-actions">
+              <button class="primary-button reveal-button" id="reveal-answer" aria-keyshortcuts="Space" title="显示释义（空格键）">显示释义 <kbd class="shortcut-key">Space</kbd></button>
+              <div id="grade-actions" class="grade-actions" hidden>
+                <button class="grade-button wrong" data-grade="wrong" aria-keyshortcuts="1" title="忘了（数字键 1）"><span class="grade-label">忘了 <kbd class="shortcut-key">1</kbd></span><small>本轮再练 3 次</small></button>
+                <button class="grade-button unsure" data-grade="uncertain" aria-keyshortcuts="2" title="不确定（数字键 2）"><span class="grade-label">不确定 <kbd class="shortcut-key">2</kbd></span><small>本轮再练 1 次</small></button>
+                <button class="grade-button correct" data-grade="correct" aria-keyshortcuts="3" title="记住了（数字键 3）"><span class="grade-label">记住了 <kbd class="shortcut-key">3</kbd></span><small id="correct-credit">首次答对计进度</small></button>
+              </div>
+            </div>
+            <div class="session-foot"><div><span>本轮进度</span><strong id="session-progress-text">0 / 10</strong></div><div class="progress-track"><div id="session-progress-bar"></div></div><button class="text-button" id="end-session">结束本轮</button></div>
+          </div>
+
+          <div id="session-done" class="session-done" hidden>
+            <p class="eyebrow">本轮完成</p><h1>先停一下，已经做完这一轮。</h1>
+            <div class="done-metrics"><div><strong id="done-correct">0</strong><span>记住</span></div><div><strong id="done-uncertain">0</strong><span>不确定</span></div><div><strong id="done-wrong">0</strong><span>忘了</span></div></div>
+            <div class="done-actions"><button class="primary-button" id="done-continue">返回词表</button><button type="button" id="undo-done" class="icon-button" title="撤回上一次答题" aria-label="撤回最后一次答题" disabled><i data-lucide="undo-2" aria-hidden="true"></i></button></div>
+          </div>
+        </section>
+
+        <section id="mistakes-view" class="view list-view" aria-label="错词" hidden>
+          <div class="view-heading"><div><p class="eyebrow">错词记录</p><h1>需要多看几眼的词</h1></div><div class="heading-actions"><span id="mistake-total"></span><button class="outline-button" id="practice-mistakes">复习错词</button></div></div>
+          <div class="filters"><input id="mistake-search" type="search" placeholder="搜索单词或释义" aria-label="搜索错词"><select id="mistake-sort" aria-label="错词排序"><option value="wrong">遗忘与不确定次数</option><option value="recent">最近出错</option><option value="list">List 顺序</option></select></div>
+          <div id="mistakes-list" class="word-list"></div>
+        </section>
+
+        <section id="stats-view" class="view list-view" aria-label="统计" hidden>
+          <div class="view-heading"><div><p class="eyebrow">学习统计</p><h1>复习进度</h1></div></div>
+          <div class="stat-strip"><div><strong id="stat-seen">0</strong><span>见过的词</span></div><div><strong id="stat-mastered">0</strong><span>已掌握</span></div><div><strong id="stat-due">0</strong><span>今天到期</span></div><div><strong id="stat-wrong">0</strong><span>未记住次数</span></div></div>
+          <h2>各 List</h2><div id="list-stats" class="list-stats"></div>
+        </section>
+
+        <section id="settings-view" class="view list-view" aria-label="设置" hidden>
+          <div class="view-heading"><div><p class="eyebrow">设置</p><h1>复习规则与数据</h1></div></div>
+          <div class="setting-row" id="pages-import-notice" role="status"><div><strong>新网址尚未导入学习记录</strong><p>旧网址的记录没有被删除。请在下方导入今天导出的备份。</p></div><label class="outline-button file-label" for="import-file">导入备份</label></div><div class="setting-row"><div><strong>掌握所需连续正确次数</strong><p>默认 5 次。当天首次作答选“记住了”才计进度；忘了或不确定会清零，补练答对不计进度。</p></div><select id="mastery-target" aria-label="掌握所需次数"><option value="3">3 次</option><option value="4">4 次</option><option value="5">5 次</option><option value="6">6 次</option><option value="7">7 次</option></select></div>
+          <div class="setting-row"><div><strong>复习间隔</strong><p>每次记住后，依次在 1、2、4、7 天后复习。一天内重复答对不会连跳多级。</p></div></div>
+          <div class="setting-row"><div><strong>每日分界</strong><p>凌晨 4:00 开始新一天。午夜到 3:59 的复习仍属于前一天。</p></div></div>
+          <div class="setting-row"><div><strong>当轮重复</strong><p>忘了追加 3 次，不确定追加 1 次；之后若答错补足到 3 次，每词每轮最多追加 3 次。</p></div></div>
+          <div class="setting-row"><div><strong>自动美式发音</strong><p id="voice-status">读取系统美式语音中</p></div><label class="audio-toggle"><input id="audio-enabled" type="checkbox" checked>开启</label></div>
+          <div class="setting-row"><div><strong>发音来源</strong></div><select id="audio-source" aria-label="发音来源"><option value="dictionary">词典音频（美式，联网）</option><option value="system">系统朗读（备用）</option></select></div>
+          <div class="setting-row" id="system-voice-row" hidden><div><strong>系统美式语音</strong></div><select id="american-voice" aria-label="美式语音"></select></div>
+          <div class="setting-row" id="day-update-info"><div><strong>本次记录调整</strong><p id="list2-repair-status"></p></div><button class="outline-button" id="export-before-update" hidden>导出调整前备份</button></div>
+          <div class="setting-row" id="cloud-row" hidden><div><strong>跨设备同步</strong><p id="cloud-status" role="status">正在读取云端进度</p></div><div class="setting-buttons"><a id="email-login" class="icon-button" href="/" title="重新登录" aria-label="重新登录" hidden><i data-lucide="log-in" aria-hidden="true"></i></a><button class="icon-button" id="sync-now" title="立即同步" aria-label="立即同步"><i data-lucide="refresh-cw" aria-hidden="true"></i></button></div></div>
+          <div class="setting-row" id="sync-conflict" hidden><div><strong>两台设备修改了相同记录</strong><p id="conflict-detail"></p></div><div class="setting-buttons"><button class="outline-button" id="keep-cloud">采用云端冲突项</button><button class="outline-button" id="keep-local">采用本机冲突项</button></div></div>
+          <div class="setting-row"><div><strong>数据备份</strong><p id="backup-description">记录只存在当前浏览器。换浏览器、清除网站数据或更换设备前，请先导出备份。</p></div><div class="setting-buttons"><button class="outline-button" id="export-data">导出备份</button><label class="outline-button file-label" for="import-file">导入备份</label><input type="file" id="import-file" accept="application/json,.json" hidden><button class="outline-button" id="export-conflict" hidden>导出冲突备份</button></div></div>
+          <div class="setting-row"><div><strong>清空学习记录</strong><p>会删除这个网页保存的答题记录和错词次数。</p></div><button class="danger-button" id="reset-data">清空记录</button></div>
+          <p class="source-note">题库来自《GRE 核心必背 1500 词 V1.2》PDF，共 30 个 List、1500 词。释义按原表提取。</p>
+        </section>
+      </main>
+
+      <aside class="insight-rail" aria-label="学习概况">
+        <section class="insight-block"><div class="insight-heading"><strong>当前词表</strong><span id="insight-list">List 1</span></div><div class="insight-numbers"><div><strong id="insight-due">0</strong><span>到期</span></div><div><strong id="insight-new">50</strong><span>未见</span></div><div><strong id="insight-mastered">0</strong><span>掌握</span></div></div><div class="progress-track"><div id="mastery-progress"></div></div></section>
+        <section class="insight-block"><div class="insight-heading"><strong>记忆进度</strong><span>连续正确</span></div><div class="stage-list" id="stage-list"></div></section>
+        <section class="insight-block"><div class="insight-heading"><strong>当前词</strong></div><div id="current-word-stat" class="current-word-stat">开始一轮后，这里会显示这张卡的记录。</div></section>
+        <section class="insight-block recent-block"><div class="insight-heading"><strong>最近错词</strong><button class="text-button" id="show-mistakes">查看全部</button></div><div id="recent-mistakes"></div></section>
+      </aside>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="words.js"></script>
+  <script src="scheduler.js"></script>
+  <script src="lucide.min.js"></script>
+  <script src="pronunciation.js"></script>
+  <script src="sync.js"></script>
+  <script src="app.js"></script><script src="github-pages-client.js"></script>
+</body>
+</html>

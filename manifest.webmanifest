@@ -1,0 +1,11 @@
+{
+  "name": "GRE 词义复习",
+  "short_name": "GRE 复习",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f7f9f8",
+  "theme_color": "#f7f9f8",
+  "lang": "zh-CN",
+  "scope": "./",
+  "id": "./"
+}
