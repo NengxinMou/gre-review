@@ -25,7 +25,10 @@
       label: "剑桥 · 美式词典录音", ipa: sense.ipa,
       reference: `https://dictionary.cambridge.org/us/pronunciation/english/${encodeURIComponent(word.word)}`
     };
+    const capitalized = word.word.charAt(0).toUpperCase() + word.word.slice(1);
     return { url: `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word.word)}&type=2`,
+      // The legacy dictionary endpoint sometimes rejects only the lowercase lookup.
+      fallbackUrl: capitalized !== word.word ? `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(capitalized)}&type=2` : null,
       label: "有道 · 美式词典音频", ipa: "",
       reference: `https://www.youdao.com/result?word=${encodeURIComponent(word.word)}&lang=en` };
   }
@@ -73,7 +76,8 @@
       if (audioTimer) host.clearTimeout(audioTimer);
       audioTimer = null;
       if (audio) {
-        audio.pause(); audio.removeAttribute("src"); audio.load(); audio = null;
+        audio.onplaying = audio.onended = audio.onerror = audio.onwaiting = null;
+        audio.pause();
       }
       if (supported) synth.cancel();
       emit();
@@ -125,35 +129,63 @@
       const generation = token;
       const urls = [track.url, ...(track.following || [])];
       let part = 0;
-      const player = new host.Audio(urls[part]);
-      audio = player;
+      // Safari playback permissions belong to the element, not the word.
+      const player = audio || (audio = new host.Audio());
       player.preload = "auto";
-      message = "加载词典音频…";
-      emit();
+      let attempt = 0;
+      let retries = 0;
       function clearTimer() { if (audioTimer) host.clearTimeout(audioTimer); audioTimer = null; }
-      function fail(error) {
-        if (generation !== token || error?.name === "AbortError") return;
-        clearTimer(); playing = false;
-        lastError = error?.name || "media-error";
-        message = lastError === "NotAllowedError" ? "点击播放按钮开启发音" : "词典音频暂不可用，请重播或更换发音来源。";
-        player.pause(); emit();
-      }
-      player.onplaying = () => { if (generation !== token) return; clearTimer(); playing = true; message = "正在播放"; emit(); };
-      player.onended = () => {
-        if (generation !== token || lastError) return;
+      function playPart() {
+        if (generation !== token) return;
+        const currentAttempt = ++attempt;
+        let settled = false;
+        const current = () => generation === token && currentAttempt === attempt && !settled;
         clearTimer();
-        if (++part < urls.length) {
-          // Reuse the unlocked element for the next recording on iPhone.
-          player.src = urls[part];
-          playing = false; message = "加载词典音频…"; emit();
-          audioTimer = host.setTimeout(() => fail({ name: "TimeoutError" }), 10000);
-          try { Promise.resolve(player.play()).catch(fail); } catch (error) { fail(error); }
-        } else { playing = false; message = ""; emit(); }
-      };
-      player.onerror = () => fail({ name: "media-error" });
-      audioTimer = host.setTimeout(() => fail({ name: "TimeoutError" }), 10000);
-      try { Promise.resolve(player.play()).catch(fail); return true; }
-      catch (error) { fail(error); return false; }
+        player.onplaying = player.onended = player.onerror = player.onwaiting = null;
+        player.pause();
+        player.src = retries && part === 0 && track.fallbackUrl ? track.fallbackUrl : urls[part];
+        playing = false; lastError = "";
+        message = retries ? "正在重试词典音频…" : "加载词典音频…";
+        function fail(error) {
+          if (!current()) return;
+          settled = true;
+          clearTimer(); playing = false;
+          player.onplaying = player.onended = player.onerror = player.onwaiting = null;
+          player.pause();
+          const reason = error?.name || "media-error";
+          if (!["NotAllowedError", "AbortError"].includes(reason) && retries < 1) {
+            retries++;
+            message = "正在重试词典音频…"; emit();
+            audioTimer = host.setTimeout(playPart, 400);
+            return;
+          }
+          lastError = reason;
+          if (reason === "NotAllowedError" || reason === "AbortError") {
+            message = "点击播放按钮开启发音";
+          } else {
+            const provider = track.label.startsWith("剑桥") ? "剑桥" : "有道";
+            message = reason === "TimeoutError" ? `${provider}音频加载超时，点击重播重试。` : `${provider}音频未能加载，点击重播重试。`;
+          }
+          emit();
+        }
+        function watchLoading() {
+          if (current() && audioTimer === null) audioTimer = host.setTimeout(() => fail({ name: "TimeoutError" }), 12000);
+        }
+        player.onplaying = () => { if (!current()) return; clearTimer(); playing = true; message = "正在播放"; emit(); };
+        player.onwaiting = () => { if (!current()) return; playing = false; message = "加载词典音频…"; watchLoading(); emit(); };
+        player.onended = () => {
+          if (!current()) return;
+          settled = true; clearTimer();
+          if (++part < urls.length) { retries = 0; playPart(); }
+          else { playing = false; message = ""; emit(); }
+        };
+        player.onerror = () => fail({ name: "media-error" });
+        watchLoading(); emit();
+        try { Promise.resolve(player.play()).catch(fail); }
+        catch (error) { fail(error); }
+      }
+      playPart();
+      return true;
     }
     function setSource(value) { stop(); source = value === "system" ? "system" : "dictionary"; track = null; emit(); }
     function setMuted(value) { muted = !!value; if (muted) stop(); else emit(); }
@@ -165,7 +197,7 @@
     }
     if (supported) synth.addEventListener?.("voiceschanged", voicesChanged);
     return { speak, stop, voices, setMuted, setVoice, setSource, refresh: emit,
-      dispose() { stop(); if (supported) synth.removeEventListener?.("voiceschanged", voicesChanged); } };
+      dispose() { stop(); if (audio) { audio.removeAttribute("src"); audio.load(); audio = null; } if (supported) synth.removeEventListener?.("voiceschanged", voicesChanged); } };
   }
   return { americanVoices, dictionaryTrack, create };
 });
