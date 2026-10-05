@@ -10,7 +10,7 @@
   const today = () => new Date();
   let storageReady = true;
   let toastTimer;
-  const cloudEnabled = !!document.querySelector('meta[name="gre-cloud"][content="enabled"]');
+  let cloudEnabled = !!document.querySelector('meta[name="gre-cloud"][content="enabled"]');
   let cloud = null;
   let cloudBlocked = cloudEnabled;
 
@@ -523,11 +523,15 @@
   pronunciation.setVoice(state.audio.voiceURI);
   pronunciation.setMuted(state.audio.muted);
   render();
-  if (cloudEnabled) {
+  function connectCloud(options = {}) {
+    if (cloud) return;
+    cloudEnabled = true;
+    cloudBlocked = true;
     $("cloud-row").hidden = false;
     $("backup-description").textContent = "进度自动同步；发音偏好、当前练习和撤回留在本机。首次迁移请导入原网页的备份。";
     cloud = window.GreSync.create({
-      read: () => window.GreSync.snapshot(state), storage: localStorage, fetch: window.fetch.bind(window),
+      read: () => window.GreSync.snapshot(state), storage: localStorage, fetch: options.fetch || window.fetch.bind(window),
+      storageKey: options.storageKey, changeDelayMs: options.changeDelayMs,
       apply(shared) {
         const changed = new Set([...Object.keys(state.records), ...Object.keys(shared.records)].filter((id) => JSON.stringify(state.records[id]) !== JSON.stringify(shared.records[id])));
         if (state.session?.undo?.some((item) => changed.has(item.id))) {
@@ -554,9 +558,13 @@
     $("keep-local").addEventListener("click", () => cloud.resolve("local"));
     $("export-conflict").addEventListener("click", () => { const backup = cloud.getBackup(); if (backup) exportBackup(JSON.parse(backup), "GRE同步冲突备份"); });
     void cloud.sync();
-    setInterval(() => { if (document.visibilityState === "visible") void cloud.sync(); }, 10000);
+    setInterval(() => { if (document.visibilityState === "visible") void cloud.sync(); }, options.pollMs || 10000);
     window.addEventListener("online", () => cloud.sync(true));
     window.addEventListener("gre-auth-refreshed", () => cloud.sync(true));
+  }
+  if (cloudEnabled) connectCloud();
+  if (document.querySelector('meta[name="gre-deployment"][content="github-pages"]')) {
+    window.addEventListener("gre-sync-connect", (event) => connectCloud(event.detail));
   }
   if (updateResult.changed) {
     save();

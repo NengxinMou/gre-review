@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-title" content="GRE 复习">
   <link rel="manifest" href="manifest.webmanifest">
   <title>GRE 词义复习</title>
-  <link rel="stylesheet" href="styles.css">
-<meta name="gre-deployment" content="github-pages"><meta name="gre-storage-key" content="gre-review-github-pages-v1"></head>
+  <link rel="stylesheet" href="styles.css?v=github-sync-1">
+<meta name="gre-deployment" content="github-pages"><meta name="gre-storage-key" content="gre-review-github-pages-v1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src https://dict.youdao.com https://dictionary.cambridge.org; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'self'; form-action 'none'"></head>
 <body>
   <div class="app-shell">
     <header class="topbar">
@@ -101,7 +101,23 @@
           <div class="setting-row"><div><strong>发音来源</strong></div><select id="audio-source" aria-label="发音来源"><option value="dictionary">词典音频（美式，联网）</option><option value="system">系统朗读（备用）</option></select></div>
           <div class="setting-row" id="system-voice-row" hidden><div><strong>系统美式语音</strong></div><select id="american-voice" aria-label="美式语音"></select></div>
           <div class="setting-row" id="day-update-info"><div><strong>本次记录调整</strong><p id="list2-repair-status"></p></div><button class="outline-button" id="export-before-update" hidden>导出调整前备份</button></div>
-          <div class="setting-row" id="cloud-row" hidden><div><strong>跨设备同步</strong><p id="cloud-status" role="status">正在读取云端进度</p></div><div class="setting-buttons"><a id="email-login" class="icon-button" href="/" title="重新登录" aria-label="重新登录" hidden><i data-lucide="log-in" aria-hidden="true"></i></a><button class="icon-button" id="sync-now" title="立即同步" aria-label="立即同步"><i data-lucide="refresh-cw" aria-hidden="true"></i></button></div></div>
+          <div class="setting-row github-auth-row" id="github-auth-panel">
+  <div class="github-auth-heading"><strong>GitHub 私有同步</strong><a class="text-button" href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener noreferrer">管理授权</a></div>
+  <form id="github-auth-form" class="github-auth-form">
+    <label for="github-owner">GitHub 用户名<input id="github-owner" type="text" autocomplete="off" required maxlength="39" value="NengxinMou"></label>
+    <label for="github-token" id="github-token-row">Fine-grained 授权码（仅 gre-review-data）<input id="github-token" type="password" autocomplete="off" spellcheck="false"></label>
+    <label for="github-password">本机解锁密码<input id="github-password" type="password" autocomplete="off" required minlength="8"></label>
+    <button class="primary-button" id="github-connect" type="submit">连接私有仓库</button>
+  </form>
+  <p id="github-auth-status" role="status">授权加密保存在本机，解锁密码不会上传。不要填写 GitHub 密码。授权码仅发送到 GitHub 官方接口。忘记解锁密码不会删除学习记录。</p>
+  <div class="setting-buttons">
+    <label class="outline-button file-label" id="github-import-auth-label" for="github-import-auth">导入加密授权</label><input type="file" id="github-import-auth" accept=".json,application/json" hidden>
+    <button class="outline-button" type="button" id="github-export-auth" hidden>导出加密授权</button>
+    <button class="outline-button" type="button" id="github-forget-auth" hidden>移除本机授权</button>
+  </div>
+</div>
+
+<div class="setting-row" id="cloud-row" hidden><div><strong>跨设备同步</strong><p id="cloud-status" role="status">正在读取云端进度</p></div><div class="setting-buttons"><a id="email-login" class="icon-button" href="/" title="重新登录" aria-label="重新登录" hidden><i data-lucide="log-in" aria-hidden="true"></i></a><button class="icon-button" id="sync-now" title="立即同步" aria-label="立即同步"><i data-lucide="refresh-cw" aria-hidden="true"></i></button></div></div>
           <div class="setting-row" id="sync-conflict" hidden><div><strong>两台设备修改了相同记录</strong><p id="conflict-detail"></p></div><div class="setting-buttons"><button class="outline-button" id="keep-cloud">采用云端冲突项</button><button class="outline-button" id="keep-local">采用本机冲突项</button></div></div>
           <div class="setting-row"><div><strong>数据备份</strong><p id="backup-description">记录只存在当前浏览器。换浏览器、清除网站数据或更换设备前，请先导出备份。</p></div><div class="setting-buttons"><button class="outline-button" id="export-data">导出备份</button><label class="outline-button file-label" for="import-file">导入备份</label><input type="file" id="import-file" accept="application/json,.json" hidden><button class="outline-button" id="export-conflict" hidden>导出冲突备份</button></div></div>
           <div class="setting-row"><div><strong>清空学习记录</strong><p>会删除这个网页保存的答题记录和错词次数。</p></div><button class="danger-button" id="reset-data">清空记录</button></div>
@@ -118,11 +134,11 @@
     </div>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="words.js"></script>
-  <script src="scheduler.js"></script>
-  <script src="lucide.min.js"></script>
-  <script src="pronunciation.js"></script>
-  <script src="sync.js"></script>
-  <script src="app.js"></script><script src="github-pages-client.js"></script>
+  <script src="words.js?v=github-sync-1"></script>
+  <script src="scheduler.js?v=github-sync-1"></script>
+  <script src="lucide.min.js?v=github-sync-1"></script>
+  <script src="pronunciation.js?v=github-sync-1"></script>
+  <script src="sync.js?v=github-sync-1"></script>
+  <script src="github-sync.js?v=github-sync-1"></script><script src="app.js?v=github-sync-1"></script><script src="github-pages-client.js?v=github-sync-1"></script>
 </body>
 </html>

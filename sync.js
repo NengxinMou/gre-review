@@ -29,17 +29,19 @@
     return { value: result, conflicts };
   }
 
-  function create({ read, apply, storage, fetch: request, onStatus }) {
+  function create({ read, apply, storage, fetch: request, onStatus, storageKey = KEY, changeDelayMs = 0 }) {
+    const conflictKey = storageKey === KEY ? "gre-cloud-conflict-backup-v1" : `${storageKey}:conflict`;
+    let changeTimer;
     let base = null, revision = 0, busy = false, again = false, conflict = null;
     let ready = false, error = "", retryAt = 0;
     try {
-      const saved = JSON.parse(storage.getItem(KEY));
+      const saved = JSON.parse(storage.getItem(storageKey));
       if (saved?.base?.version === 1 && Number.isInteger(saved.revision)) { base = saved.base; revision = saved.revision; ready = true; }
     } catch (_) {}
     function status() {
       onStatus({ busy, ready, error, conflict: conflict?.conflicts || [], pending: !base || !same(read(), base) });
     }
-    function persist() { storage.setItem(KEY, JSON.stringify({ revision, base })); }
+    function persist() { storage.setItem(storageKey, JSON.stringify({ revision, base })); }
     async function call(method, body) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
@@ -55,6 +57,7 @@
       } finally { clearTimeout(timeout); }
     }
     async function sync(force = false) {
+      clearTimeout(changeTimer);
       if (conflict) { status(); return; }
       if (busy) { again = true; return; }
       if (!force && Date.now() < retryAt) return;
@@ -96,7 +99,7 @@
     async function resolve(preference) {
       if (!conflict || busy || !["local", "remote"].includes(preference)) return;
       // Retain both sides before an explicit choice. Only conflicting fields use the chosen side.
-      try { storage.setItem("gre-cloud-conflict-backup-v1", JSON.stringify({ at: Date.now(), ...conflict })); }
+      try { storage.setItem(conflictKey, JSON.stringify({ at: Date.now(), ...conflict })); }
       catch (_) { error = "无法保存冲突备份，请先导出本机记录。"; status(); return; }
       const chosen = clone(conflict.value);
       for (const key of conflict.conflicts) {
@@ -111,7 +114,11 @@
       await sync(true);
     }
     status();
-    return { sync, resolve, changed() { if (busy) again = true; else void sync(); }, getBackup() { return storage.getItem("gre-cloud-conflict-backup-v1"); } };
+    return { sync, resolve, changed() {
+      if (busy) again = true;
+      else if (changeDelayMs) { clearTimeout(changeTimer); changeTimer = setTimeout(() => void sync(), changeDelayMs); }
+      else void sync();
+    }, getBackup() { return storage.getItem(conflictKey); } };
   }
   return { snapshot, merge, create };
 });
