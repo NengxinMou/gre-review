@@ -135,5 +135,62 @@
       return token;
     } catch (_) { throw new Error("解锁密码不正确，或授权文件已损坏。学习记录未改变。"); }
   }
-  return { create, seal, unseal, vaultValid, validState };
+  function deviceAuthorization(host = globalThis) {
+    async function stored(mode, action) {
+      if (!host.indexedDB || !host.crypto?.subtle) throw new Error("此浏览器无法保存保持连接设置，请每次打开时解锁。");
+      return new Promise((resolve, reject) => {
+        let db = null, transaction = null, done = false;
+        const timeout = host.setTimeout(() => finish(new Error("保存设备授权超时，请重试。")), 5000);
+        function finish(error, result) {
+          if (done) return;
+          done = true; host.clearTimeout(timeout);
+          if (error && transaction) { try { transaction.abort(); } catch (_) {} }
+          db?.close();
+          if (error) reject(error); else resolve(result);
+        }
+        let opening;
+        try { opening = host.indexedDB.open("gre-github-device-v1", 1); }
+        catch (error) { finish(error); return; }
+        opening.onupgradeneeded = () => {
+          if (done) { opening.transaction.abort(); return; }
+          opening.result.createObjectStore("authorization");
+        };
+        opening.onerror = () => finish(opening.error || new Error("无法打开设备授权存储。"));
+        opening.onsuccess = () => {
+          db = opening.result;
+          if (done) { db.close(); return; }
+          db.onversionchange = () => db.close();
+          try {
+            transaction = db.transaction("authorization", mode);
+            const request = action(transaction.objectStore("authorization"));
+            let result;
+            request.onsuccess = () => { result = request.result; };
+            transaction.oncomplete = () => finish(null, result);
+            transaction.onerror = transaction.onabort = () => finish(transaction.error || new Error("无法保存设备授权。"));
+          } catch (error) { finish(error); }
+        };
+      });
+    }
+    const binding = (vault) => JSON.stringify([vault.version, vault.owner, vault.repo, vault.salt, vault.iv, vault.cipher]);
+    async function remember(vault, token) {
+      if (!vaultValid(vault)) throw new Error("同步授权文件格式不正确。");
+      config(vault.owner, token);
+      const deviceKey = await host.crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+      const iv = host.crypto.getRandomValues(new Uint8Array(12));
+      const cipher = await host.crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: textBytes(binding(vault)) }, deviceKey, textBytes(token));
+      // Store a non-exportable device key and ciphertext, never the token or password.
+      await stored("readwrite", (store) => store.put({ version: 1, binding: binding(vault), deviceKey, iv: encode(iv), cipher: encode(new Uint8Array(cipher)) }, "active"));
+    }
+    async function restore(vault) {
+      if (!vaultValid(vault)) return null;
+      const saved = await stored("readonly", (store) => store.get("active"));
+      if (!saved || saved.version !== 1 || saved.binding !== binding(vault)) return null;
+      const plaintext = await host.crypto.subtle.decrypt({ name: "AES-GCM", iv: decode(saved.iv), additionalData: textBytes(binding(vault)) }, saved.deviceKey, decode(saved.cipher));
+      const token = new TextDecoder().decode(plaintext);
+      config(vault.owner, token);
+      return token;
+    }
+    return { remember, restore, forget: () => stored("readwrite", (store) => store.delete("active")) };
+  }
+  return { create, seal, unseal, vaultValid, validState, deviceAuthorization };
 });

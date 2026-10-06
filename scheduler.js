@@ -133,7 +133,8 @@
   function scheduleRetries(session, id, grade) {
     const desired = grade === "wrong" ? 3 : grade === "uncertain" ? 1 : 0;
     session.retries = session.retries || {};
-    const previous = session.retries[id] || 0;
+    // A failed retry replaces the remaining work, rather than hitting a lifetime cap.
+    if (desired) session.ids = [...session.ids.slice(0, session.index + 1), ...session.ids.slice(session.index + 1).filter((word) => word !== id)];
     const seen = new Set(session.ids.slice(0, session.index + 1));
     const remaining = session.ids.slice(session.index + 1).filter((word) => {
       if (seen.has(word)) return false;
@@ -141,13 +142,13 @@
       return true;
     });
     const gaps = [3, Math.max(6, Math.ceil(remaining.length * 0.6)), Infinity];
-    for (let count = previous; count < desired; count++) {
+    for (let count = 0; count < desired; count++) {
       const anchor = remaining[gaps[count]];
       const position = anchor ? session.ids.indexOf(anchor, session.index + 1) : session.ids.length;
       session.ids.splice(position, 0, id);
     }
-    session.retries[id] = Math.max(previous, desired);
     spreadPendingRetries(session);
+    session.retries[id] = session.ids.slice(session.index + 1).filter((word) => word === id).length;
   }
 
   function spreadPendingRetries(session) {

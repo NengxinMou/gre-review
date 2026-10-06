@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-title" content="GRE 复习">
   <link rel="manifest" href="manifest.webmanifest">
   <title>GRE 词义复习</title>
-  <link rel="stylesheet" href="styles.css?v=audio-retry-1">
+  <link rel="stylesheet" href="styles.css?v=remember-retry-1">
 <meta name="gre-deployment" content="github-pages"><meta name="gre-storage-key" content="gre-review-github-pages-v1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src https://dict.youdao.com https://dictionary.cambridge.org; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'self'; form-action 'none'"></head>
 <body>
   <div class="app-shell">
@@ -96,7 +96,7 @@
           <div class="setting-row" id="pages-import-notice" role="status"><div><strong>新网址尚未导入学习记录</strong><p>旧网址的记录没有被删除。请在下方导入今天导出的备份。</p></div><label class="outline-button file-label" for="import-file">导入备份</label></div><div class="setting-row"><div><strong>掌握所需连续正确次数</strong><p>默认 5 次。当天首次作答选“记住了”才计进度；忘了或不确定会清零，补练答对不计进度。</p></div><select id="mastery-target" aria-label="掌握所需次数"><option value="3">3 次</option><option value="4">4 次</option><option value="5">5 次</option><option value="6">6 次</option><option value="7">7 次</option></select></div>
           <div class="setting-row"><div><strong>复习间隔</strong><p>每次记住后，依次在 1、2、4、7 天后复习。一天内重复答对不会连跳多级。</p></div></div>
           <div class="setting-row"><div><strong>每日分界</strong><p>凌晨 4:00 开始新一天。午夜到 3:59 的复习仍属于前一天。</p></div></div>
-          <div class="setting-row"><div><strong>当轮重复</strong><p>忘了追加 3 次，不确定追加 1 次；之后若答错补足到 3 次，每词每轮最多追加 3 次。</p></div></div>
+          <div class="setting-row"><div><strong>当轮重复</strong><p>忘了后重新安排 3 次，不确定后重新安排 1 次。补练中再次忘了或不确定，也会重置对应的剩余次数；旧补练不叠加。</p></div></div>
           <div class="setting-row"><div><strong>自动美式发音</strong><p id="voice-status">读取系统美式语音中</p></div><label class="audio-toggle"><input id="audio-enabled" type="checkbox" checked>开启</label></div>
           <div class="setting-row"><div><strong>发音来源</strong></div><select id="audio-source" aria-label="发音来源"><option value="dictionary">词典音频（美式，联网）</option><option value="system">系统朗读（备用）</option></select></div>
           <div class="setting-row" id="system-voice-row" hidden><div><strong>系统美式语音</strong></div><select id="american-voice" aria-label="美式语音"></select></div>
@@ -109,6 +109,8 @@
     <label for="github-password">本机解锁密码<input id="github-password" type="password" autocomplete="off" required minlength="8"></label>
     <button class="primary-button" id="github-connect" type="submit">连接私有仓库</button>
   </form>
+  <label class="github-remember-choice" for="github-remember"><input id="github-remember" type="checkbox">在此设备保持连接</label>
+  <p class="github-device-note">仅在自己的设备开启。使用此浏览器的人将能同步你的进度；解锁密码不会保存。</p>
   <p id="github-auth-status" role="status">授权加密保存在本机，解锁密码不会上传。不要填写 GitHub 密码。授权码仅发送到 GitHub 官方接口。忘记解锁密码不会删除学习记录。</p>
   <div class="setting-buttons">
     <label class="outline-button file-label" id="github-import-auth-label" for="github-import-auth">导入加密授权</label><input type="file" id="github-import-auth" accept=".json,application/json" hidden>
@@ -134,11 +136,11 @@
     </div>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="words.js?v=audio-retry-1"></script>
-  <script src="scheduler.js?v=audio-retry-1"></script>
-  <script src="lucide.min.js?v=audio-retry-1"></script>
-  <script src="pronunciation.js?v=audio-retry-1"></script>
-  <script src="sync.js?v=audio-retry-1"></script>
-  <script src="github-sync.js?v=audio-retry-1"></script><script src="app.js?v=audio-retry-1"></script><script src="github-pages-client.js?v=audio-retry-1"></script>
+  <script src="words.js?v=remember-retry-1"></script>
+  <script src="scheduler.js?v=remember-retry-1"></script>
+  <script src="lucide.min.js?v=remember-retry-1"></script>
+  <script src="pronunciation.js?v=remember-retry-1"></script>
+  <script src="sync.js?v=remember-retry-1"></script>
+  <script src="github-sync.js?v=remember-retry-1"></script><script src="app.js?v=remember-retry-1"></script><script src="github-pages-client.js?v=remember-retry-1"></script>
 </body>
 </html>
