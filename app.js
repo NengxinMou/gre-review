@@ -4,6 +4,7 @@
   const WORDS = window.GRE_WORDS || [];
   const Scheduler = window.GreScheduler;
   const STORAGE_KEY = document.querySelector('meta[name="gre-storage-key"]')?.content || "gre-1500-meaning-review-v1";
+  const TIME_ZONE_KEY = `${STORAGE_KEY}:study-time-zone-v1`;
   const WORD_BY_ID = new Map(WORDS.map((word) => [word.id, word]));
   const $ = (id) => document.getElementById(id);
   const all = (selector) => [...document.querySelectorAll(selector)];
@@ -13,6 +14,14 @@
   let cloudEnabled = !!document.querySelector('meta[name="gre-cloud"][content="enabled"]');
   let cloud = null;
   let cloudBlocked = cloudEnabled;
+  let studyTimeZone = Scheduler.DEFAULT_TIME_ZONE;
+  let timeZoneNotice = "";
+  try {
+    const saved = localStorage.getItem(TIME_ZONE_KEY);
+    const valid = Scheduler.normalizeTimeZone(saved);
+    if (valid) studyTimeZone = valid;
+    else if (saved) timeZoneNotice = "保存的时区无法识别，暂用北京时间；请重新选择。";
+  } catch (_) { timeZoneNotice = "无法读取时区设置，暂用北京时间。"; }
 
   function blankState() {
     return { version: 1, target: 5, selected: 1, lastList: 1, audio: { muted: false, source: "dictionary", voiceURI: "" }, records: {}, session: null, studyDayRule: Scheduler.STUDY_DAY_RULE, appliedUpdates: [Scheduler.LIST2_REPAIR] };
@@ -147,7 +156,7 @@
     const now = today();
     words.forEach((word) => {
       const record = state.records[word.id];
-      const kind = Scheduler.status(record, now, state.target);
+      const kind = Scheduler.status(record, now, state.target, studyTimeZone);
       result[kind === "new" ? "fresh" : kind] += 1;
       if (record?.attempts) result.seen += 1;
       if (record?.wrong) result.wrong += record.wrong;
@@ -262,7 +271,7 @@
       $("reveal-answer").hidden = !!session.revealed;
       $("grade-actions").hidden = !session.revealed;
       const firstInRound = !session.ids.slice(0, session.index).includes(word.id);
-      $("correct-credit").textContent = Scheduler.canAdvance(state.records[word.id] || Scheduler.emptyRecord(), Date.now(), firstInRound) ? "计入连续正确" : "只巩固，不计进度";
+      $("correct-credit").textContent = Scheduler.canAdvance(state.records[word.id] || Scheduler.emptyRecord(), Date.now(), firstInRound, studyTimeZone) ? "计入连续正确" : "只巩固，不计进度";
       $("session-progress-text").textContent = `${session.index} / ${session.ids.length}`;
       $("session-progress-bar").style.width = `${Math.round(session.index / session.ids.length * 100)}%`;
       syncWordAudio();
@@ -279,7 +288,7 @@
       $("home-label").textContent = selectionLabel();
       $("home-title").textContent = daily ? summary.due ? "每日复习" : "今日到期词已复习完" : summary.due + summary.fresh ? "今天从这里开始" : "今天的复习已完成";
       $("home-due").textContent = summary.due;
-      $("home-new").textContent = daily ? new Set(Scheduler.dailyWords(WORDS, state.records, today(), state.target).map((word) => word.list)).size : summary.fresh;
+      $("home-new").textContent = daily ? new Set(Scheduler.dailyWords(WORDS, state.records, today(), state.target, studyTimeZone).map((word) => word.list)).size : summary.fresh;
       $("home-new-label").textContent = daily ? "涵盖 List" : "未见过";
       $("home-mastered").textContent = summary.mastered;
       $("start-session").disabled = !(daily ? summary.due : summary.due + summary.fresh);
@@ -344,7 +353,12 @@
   }
 
   function render() {
-    $("pane-date").textContent = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "long" }).format(new Date(Scheduler.dayStart(today())));
+    const studyDate = new Intl.DateTimeFormat("zh-CN", { timeZone: studyTimeZone, month: "long", day: "numeric", weekday: "long" }).format(new Date(Scheduler.dayStart(today(), studyTimeZone)));
+    $("pane-date").textContent = `${studyDate} · ${studyTimeZone === "Asia/Shanghai" ? "北京时间" : studyTimeZone === "America/New_York" ? "美东时间" : studyTimeZone}`;
+    const timeZoneSelect = $("study-time-zone");
+    if (![...timeZoneSelect.options].some((option) => option.value === studyTimeZone)) timeZoneSelect.add(new Option(studyTimeZone, studyTimeZone));
+    timeZoneSelect.value = studyTimeZone;
+    $("study-time-zone-status").textContent = timeZoneNotice || `当前复习日：${Scheduler.dateKey(today(), studyTimeZone)}，所选时区凌晨 4:00 换日。此设置保存在当前浏览器，不跟随系统变化；跨设备使用时请选相同时区。`;
     $("section-label").textContent = currentView === "questions" ? "GRE 错题本" : selectionLabel();
     $("mastery-target").value = String(state.target);
     renderNavigation();
@@ -403,7 +417,7 @@
 
   function gradeCurrent(grade) {
     if (cloudBlocked) { showView("settings"); notify("请先处理同步冲突，当前卡片已保留。"); return; }
-    if (!Scheduler.answer(state, grade, Date.now())) return;
+    if (!Scheduler.answer(state, grade, Date.now(), studyTimeZone)) return;
     save();
     render();
   }
@@ -445,7 +459,7 @@
   $("start-session").addEventListener("click", () => {
     const count = Number($("batch-size").value);
     const daily = state.selected === "daily";
-    const ids = daily ? Scheduler.pickDailyQueue(WORDS, state.records, today(), count, state.target) : Scheduler.pickQueue(pool(), state.records, today(), count, state.target);
+    const ids = daily ? Scheduler.pickDailyQueue(WORDS, state.records, today(), count, state.target, Math.random, studyTimeZone) : Scheduler.pickQueue(pool(), state.records, today(), count, state.target, Math.random, studyTimeZone);
     startSession(ids, daily ? "daily" : "normal");
   });
   $("replay-word").addEventListener("click", () => syncWordAudio(true));
@@ -470,13 +484,21 @@
     if (cloudBlocked) { event.target.value = String(state.target); notify("请先完成同步或处理记录冲突。"); return; }
     state.target = Number(event.target.value); save(); render(); notify(`掌握目标已设为 ${state.target} 次连续正确。`);
   });
+  $("study-time-zone").addEventListener("change", (event) => {
+    const next = Scheduler.normalizeTimeZone(event.target.value);
+    if (!next) { event.target.value = studyTimeZone; notify("当前浏览器不支持这个时区。"); return; }
+    try { localStorage.setItem(TIME_ZONE_KEY, next); }
+    catch (_) { event.target.value = studyTimeZone; notify("时区未能保存，仍使用原时区。"); return; }
+    studyTimeZone = next; timeZoneNotice = "";
+    renderedDay = Scheduler.dayStart(today(), studyTimeZone);
+    render(); notify("复习时区已固定，原有答题记录与累计进度保留。");
+  });
   function exportBackup(data, label) {
     const blob = new Blob([JSON.stringify({ ...data, exportedAt: new Date().toISOString() }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    const date = new Date(Scheduler.dayStart(today()));
-    const day = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const day = Scheduler.dateKey(today(), studyTimeZone);
     link.download = `${label}-${day}.json`;
     document.body.append(link);
     link.click();
@@ -573,15 +595,22 @@
     save();
     if (updateResult.repaired) notify(`List 2 已有 ${updateResult.repaired} 个词从 2 次改为 1 次，原记录已备份。`);
   }
-  let renderedDay = Scheduler.dayStart(today());
+  let renderedDay = Scheduler.dayStart(today(), studyTimeZone);
   setInterval(() => {
-    const day = Scheduler.dayStart(today());
+    const day = Scheduler.dayStart(today(), studyTimeZone);
     if (day !== renderedDay) { renderedDay = day; render(); }
   }, 30000);
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") { renderedDay = Scheduler.dayStart(today()); render(); void cloud?.sync(true); }
+    if (document.visibilityState === "visible") { renderedDay = Scheduler.dayStart(today(), studyTimeZone); render(); void cloud?.sync(true); }
     else { pronunciation.stop(); lastSpokenCard = ""; }
   });
   window.addEventListener("pagehide", () => pronunciation.stop());
+  window.addEventListener("storage", (event) => {
+    if (event.key !== TIME_ZONE_KEY) return;
+    const next = Scheduler.normalizeTimeZone(event.newValue) || Scheduler.DEFAULT_TIME_ZONE;
+    if (next === studyTimeZone) return;
+    studyTimeZone = next; timeZoneNotice = "";
+    renderedDay = Scheduler.dayStart(today(), studyTimeZone); render();
+  });
   if (!storageReady) notify("浏览器未允许保存记录，请使用导出备份。");
 })();
