@@ -47,6 +47,35 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid 
 .shortcut-key{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 5px;border:1px solid currentColor;border-radius:3px;font:600 11px/1 Arial,sans-serif;letter-spacing:0;opacity:.8}
 .reveal-button .shortcut-key{margin-left:8px}
 @media(max-width:620px){.view-heading{flex-wrap:wrap}.heading-actions{margin-left:auto}}
+.workspace.questions-mode{grid-template-columns:minmax(0,1fr)}
+.questions-mode>.list-rail,.questions-mode>.insight-rail,.questions-mode .mobile-list-row{display:none}
+.question-shell{width:100%;max-width:920px;margin:0 auto;padding:30px 36px 72px}
+.question-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:26px}
+.question-heading h1{font-size:27px;margin:0}.question-heading .eyebrow{margin-bottom:8px}
+#question-storage-status{font-size:12px;line-height:1.7;color:var(--muted);max-width:320px}
+.question-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:22px 0;border-block:1px solid var(--line);margin-bottom:24px}
+.question-metrics>div{display:flex;flex-direction:column;gap:8px}.question-metrics strong{font-size:30px;color:var(--teal);font-variant-numeric:tabular-nums}.question-metrics span{font-size:13px;color:var(--muted)}
+.question-start-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:28px}
+.question-filters{margin-bottom:12px}.question-list-count{color:var(--muted);font-size:12px}
+.question-list-row{display:flex;gap:20px;align-items:center;justify-content:space-between;padding:21px 0;border-bottom:1px solid var(--line)}
+.question-list-content{min-width:0}.question-list-content small{color:var(--muted);font-size:12px}.question-list-content strong{display:block;font-size:17px;margin-top:7px}.question-list-content p{font:16px/1.65 Georgia,"Times New Roman",serif;margin:8px 0 0;overflow-wrap:anywhere}
+.question-list-actions{display:flex;align-items:center;gap:12px;flex-shrink:0}.question-state{font-size:12px;color:var(--coral)}.question-state.correct{color:var(--teal-dark)}
+.question-backup{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:25px}.question-backup button{display:inline-flex;align-items:center;gap:7px}.question-backup svg{width:16px;height:16px}
+.question-practice-top{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--muted)}#question-progress{margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap}
+.question-progress-track{height:5px;margin:18px 0 30px}.question-stem{font:24px/1.9 Georgia,"Times New Roman",serif;margin:0 0 30px;overflow-wrap:anywhere}.question-stem:focus,#question-result:focus,#question-done-heading:focus{outline:none}
+.question-blank{background:var(--teal-soft);padding:2px 5px;border-bottom:2px solid var(--teal);box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.question-options{display:grid;gap:22px}.question-options.two-blanks{grid-template-columns:repeat(2,minmax(0,1fr))}
+.question-options fieldset{min-width:0;padding:0;margin:0;border:0}.question-options legend{font-size:13px;color:var(--muted);margin-bottom:12px;padding:0}
+.question-option{display:flex;align-items:center;gap:11px;min-height:54px;margin-bottom:10px;border:1px solid var(--line);border-radius:5px;padding:11px 14px;cursor:pointer;overflow-wrap:anywhere}
+.question-option input{margin:0;width:17px;height:17px;flex-shrink:0;accent-color:var(--teal)}.question-option:focus-within{outline:2px solid var(--teal);outline-offset:2px}.question-option.selected{border-color:var(--teal);background:var(--teal-soft)}
+.option-letter{font-size:12px;color:var(--muted);flex-shrink:0}.option-text{font:19px/1.45 Georgia,"Times New Roman",serif;min-width:0}.option-mark{font-size:11px;margin-left:auto;flex-shrink:0}
+.question-option.answer-correct{border-color:var(--teal);background:var(--teal-soft);color:var(--teal-dark)}.question-option.answer-wrong{border-color:#e6bbb7;background:var(--coral-soft);color:var(--coral)}
+.question-submit-row,.question-next-row{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-top:22px}.question-submit-row>span,.question-next-row>span{font-size:13px;color:var(--muted)}
+.question-feedback{border-top:1px solid var(--line);margin-top:28px;padding-top:25px;font-size:14px;line-height:1.9}.question-feedback h2{font-size:21px;color:var(--teal-dark);margin:0 0 8px}.question-feedback[data-correct=false] h2{color:var(--coral)}.question-feedback h3{font-size:14px;margin:23px 0 5px}.question-feedback p{margin:0 0 13px}.question-feedback small{font-size:11px;color:var(--muted)}
+.question-definitions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 25px;margin:22px 0}.question-definitions>div{display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere}.question-definitions strong{font:17px/1.6 Georgia,"Times New Roman",serif}.question-definitions span{font-size:12px;color:var(--muted)}
+.question-done{padding:40px 0}.question-done h2{font-size:26px}.question-done p{font-size:15px;color:var(--muted);margin-bottom:28px}
+@media(min-width:621px) and (max-width:1100px){.topbar{gap:15px;padding-inline:18px}.topnav{gap:0}.nav-tab{padding-inline:10px}.brand{font-size:21px}}
+@media(max-width:620px){.question-shell{padding:25px 19px 55px}.question-heading{align-items:flex-start;flex-direction:column;gap:9px}.question-heading h1{font-size:24px}.question-heading .eyebrow{margin-bottom:6px}.question-stem{font-size:21px;line-height:1.85}.question-options.two-blanks{grid-template-columns:minmax(0,1fr)}.question-option{padding:12px;min-height:54px}.question-list-row{align-items:flex-start;flex-direction:column;gap:12px}.question-list-actions{width:100%;justify-content:space-between}.question-start-actions .primary-button{padding-inline:18px}.question-filters{flex-wrap:wrap}.question-filters input{flex-basis:100%}.question-filters select{width:100%}.question-definitions{grid-template-columns:minmax(0,1fr)}.question-submit-row .primary-button,.question-next-row .primary-button{padding-inline:20px}.question-state{font-size:12px}}
 
 .github-remember-choice{display:flex;align-items:center;gap:8px;font-size:14px;margin-top:14px}.github-remember-choice input{width:18px;height:18px;margin:0;accent-color:#3a827d}.github-device-note{font-size:12px;color:#647574}
 

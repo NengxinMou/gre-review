@@ -345,7 +345,7 @@
 
   function render() {
     $("pane-date").textContent = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "long" }).format(new Date(Scheduler.dayStart(today())));
-    $("section-label").textContent = selectionLabel();
+    $("section-label").textContent = currentView === "questions" ? "GRE 错题本" : selectionLabel();
     $("mastery-target").value = String(state.target);
     renderNavigation();
     renderInsight();
@@ -364,6 +364,8 @@
 
   function showView(view) {
     currentView = view;
+    document.querySelector(".workspace").classList.toggle("questions-mode", view === "questions");
+    $("section-label").textContent = view === "questions" ? "GRE 错题本" : selectionLabel();
     renderTabs();
     all(".view").forEach((section) => {
       const active = section.id === `${view}-view`;
@@ -374,6 +376,7 @@
     if (view === "stats") renderStats();
     if (view !== "study") { pronunciation.stop(); lastSpokenCard = ""; }
     else syncWordAudio();
+    window.dispatchEvent(new CustomEvent("gre-view-change", { detail: view }));
   }
 
   function selectList(value) {

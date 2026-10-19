@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-title" content="GRE 复习">
   <link rel="manifest" href="manifest.webmanifest">
   <title>GRE 词义复习</title>
-  <link rel="stylesheet" href="styles.css?v=remember-retry-1">
+  <link rel="stylesheet" href="styles.css?v=question-bank-1">
 <meta name="gre-deployment" content="github-pages"><meta name="gre-storage-key" content="gre-review-github-pages-v1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src https://dict.youdao.com https://dictionary.cambridge.org; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'self'; form-action 'none'"></head>
 <body>
   <div class="app-shell">
@@ -18,6 +18,7 @@
         <button class="nav-tab active" data-view="study">学习</button>
         <button class="nav-tab" data-view="daily">每日复习 <span id="daily-due-count" class="daily-badge">0</span></button>
         <button class="nav-tab" data-view="mistakes">错词</button>
+        <button class="nav-tab" data-view="questions">错题本</button>
         <button class="nav-tab" data-view="stats">统计</button>
         <button class="nav-tab" data-view="settings">设置</button>
       </nav>
@@ -85,6 +86,32 @@
           <div id="mistakes-list" class="word-list"></div>
         </section>
 
+        <section id="questions-view" class="view" aria-label="GRE 错题本" hidden>
+          <div class="question-shell">
+            <div class="question-heading"><div><p class="eyebrow">GRE VERBAL</p><h1>错题本</h1></div><span id="question-storage-status" role="status">做题记录 · 仅本机保存</span></div>
+            <div id="question-home">
+              <div class="question-metrics" id="question-metrics"></div>
+              <div class="question-start-actions"><button class="primary-button" id="question-start">打乱练习</button><button class="outline-button" id="question-resume" hidden>继续上次练习</button><button class="outline-button" id="question-retry">重练答错的题</button></div>
+              <div class="filters question-filters"><input id="question-search" type="search" placeholder="搜索题干或选项" aria-label="搜索题目"><select id="question-filter" aria-label="题目筛选"><option value="all">全部题目</option><option value="text-completion">双空填空</option><option value="sentence-equivalence">六选二</option><option value="pending">尚未答对</option></select></div>
+              <p id="question-list-count" class="question-list-count"></p><div id="question-list"></div>
+              <div class="question-backup"><button class="outline-button" id="question-export" title="导出错题本作答记录"><i data-lucide="download" aria-hidden="true"></i>导出做题备份</button><label class="outline-button file-label" for="question-import">导入做题备份</label><input type="file" id="question-import" accept="application/json,.json" hidden></div>
+            </div>
+            <div id="question-practice" hidden>
+              <div class="question-practice-top"><button class="icon-button" id="question-back" title="返回题目目录，保留练习" aria-label="返回题目目录"><i data-lucide="arrow-left" aria-hidden="true"></i></button><span id="question-type"></span><span id="question-progress"></span></div>
+              <div class="progress-track question-progress-track"><div id="question-progress-bar"></div></div>
+              <p class="question-stem" id="question-stem" tabindex="-1"></p>
+              <form id="question-form"><div class="question-options" id="question-options"></div><div class="question-submit-row"><span id="question-selection-status" role="status"></span><button type="submit" class="primary-button" id="question-submit">提交答案</button></div></form>
+              <section id="question-feedback" class="question-feedback" aria-label="答案与解析" hidden>
+                <h2 id="question-result" tabindex="-1"></h2><p id="question-answer"></p>
+                <div id="question-definitions" class="question-definitions"></div>
+                <h3>关键线索</h3><p id="question-clue"></p><h3>解析</h3><p id="question-explanation"></p><h3>句意</h3><p id="question-translation"></p><small>答案按截图红勾录入；解析与句意根据题干整理。</small>
+                <div class="question-next-row"><span id="question-record"></span><button class="primary-button" id="question-next">下一题</button></div>
+              </section>
+              <div id="question-done" class="question-done" hidden><h2 tabindex="-1" id="question-done-heading">这一轮完成了</h2><p id="question-done-summary"></p><div class="question-start-actions"><button class="primary-button" id="question-done-retry">重练本轮错题</button><button class="outline-button" id="question-done-home">返回题目目录</button></div></div>
+            </div>
+          </div>
+        </section>
+
         <section id="stats-view" class="view list-view" aria-label="统计" hidden>
           <div class="view-heading"><div><p class="eyebrow">学习统计</p><h1>复习进度</h1></div></div>
           <div class="stat-strip"><div><strong id="stat-seen">0</strong><span>见过的词</span></div><div><strong id="stat-mastered">0</strong><span>已掌握</span></div><div><strong id="stat-due">0</strong><span>今天到期</span></div><div><strong id="stat-wrong">0</strong><span>未记住次数</span></div></div>
@@ -136,11 +163,14 @@
     </div>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="words.js?v=remember-retry-1"></script>
-  <script src="scheduler.js?v=remember-retry-1"></script>
-  <script src="lucide.min.js?v=remember-retry-1"></script>
-  <script src="pronunciation.js?v=remember-retry-1"></script>
-  <script src="sync.js?v=remember-retry-1"></script>
-  <script src="github-sync.js?v=remember-retry-1"></script><script src="app.js?v=remember-retry-1"></script><script src="github-pages-client.js?v=remember-retry-1"></script>
+  <script src="words.js?v=question-bank-1"></script>
+  <script src="scheduler.js?v=question-bank-1"></script>
+  <script src="lucide.min.js?v=question-bank-1"></script>
+  <script src="pronunciation.js?v=question-bank-1"></script>
+  <script src="sync.js?v=question-bank-1"></script>
+  <script src="questions.js?v=question-bank-1"></script>
+  <script src="question-practice.js?v=question-bank-1"></script>
+  <script src="github-sync.js?v=question-bank-1"></script><script src="app.js?v=question-bank-1"></script><script src="github-pages-client.js?v=question-bank-1"></script>
+  <script src="question-view.js?v=question-bank-1"></script>
 </body>
 </html>
