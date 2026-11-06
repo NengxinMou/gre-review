@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-title" content="GRE 复习">
   <link rel="manifest" href="manifest.webmanifest">
   <title>GRE 词义复习</title>
-  <link rel="stylesheet" href="styles.css?v=custom-words-1">
+  <link rel="stylesheet" href="styles.css?v=custom-sync-1">
 <meta name="gre-deployment" content="github-pages"><meta name="gre-storage-key" content="gre-review-github-pages-v1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src https://dict.youdao.com https://dictionary.cambridge.org; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'self'; form-action 'none'"></head>
 <body>
   <div class="app-shell">
@@ -115,7 +115,9 @@
 
         <section id="custom-view" class="view" aria-label="自建生词" hidden>
           <div class="question-shell">
-            <div class="question-heading"><div><p class="eyebrow">MY VOCABULARY</p><h1>自建生词</h1></div><span id="custom-status" role="status">生词与进度 · 仅本机保存，不参与云端同步</span></div>
+            <div class="question-heading"><div><p class="eyebrow">MY VOCABULARY</p><h1>自建生词</h1></div><span id="custom-status" role="status">生词保存在本机；连接 GitHub 后同步</span></div>
+            <div class="question-start-actions"><button class="outline-button" id="custom-sync-now" hidden>同步生词</button><button class="outline-button" id="custom-sync-export" hidden>导出冲突备份</button><button class="outline-button" id="custom-sync-before" hidden>导出首次同步前备份</button></div>
+            <div id="custom-sync-conflict" class="setting-row" hidden><div><strong>自建生词存在冲突</strong><p id="custom-conflict-detail"></p></div><div class="setting-buttons"><button class="outline-button" id="custom-keep-cloud">采用云端冲突项</button><button class="outline-button" id="custom-keep-local">采用本机冲突项</button></div></div>
             <div id="custom-home">
               <div class="question-metrics" id="custom-metrics"></div>
               <div class="question-start-actions"><button class="primary-button" id="custom-add">添加生词</button><button class="outline-button" id="custom-start">复习到期词 / 新词</button><button class="outline-button" id="custom-resume" hidden>继续本轮</button><button class="outline-button" id="custom-all">随机巩固</button><select id="custom-count" aria-label="自建生词本轮词数"><option value="5">5 词</option><option value="10">10 词</option><option value="20">20 词</option></select></div>
@@ -192,16 +194,16 @@
     </div>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="words.js?v=custom-words-1"></script>
-  <script src="scheduler.js?v=custom-words-1"></script>
-  <script src="lucide.min.js?v=custom-words-1"></script>
-  <script src="pronunciation.js?v=custom-words-1"></script>
-  <script src="sync.js?v=custom-words-1"></script>
-  <script src="questions.js?v=custom-words-1"></script>
-  <script src="question-practice.js?v=custom-words-1"></script>
-  <script src="github-sync.js?v=custom-words-1"></script><script src="app.js?v=custom-words-1"></script><script src="github-pages-client.js?v=custom-words-1"></script>
-  <script src="question-view.js?v=custom-words-1"></script>
-  <script src="custom-words.js?v=custom-words-1"></script>
-  <script src="custom-view.js?v=custom-words-1"></script>
+  <script src="words.js?v=custom-sync-1"></script>
+  <script src="scheduler.js?v=custom-sync-1"></script>
+  <script src="lucide.min.js?v=custom-sync-1"></script>
+  <script src="pronunciation.js?v=custom-sync-1"></script>
+  <script src="sync.js?v=custom-sync-1"></script>
+  <script src="questions.js?v=custom-sync-1"></script>
+  <script src="question-practice.js?v=custom-sync-1"></script>
+  <script src="custom-words.js?v=custom-sync-1"></script>
+  <script src="github-sync.js?v=custom-sync-1"></script><script src="app.js?v=custom-sync-1"></script>
+  <script src="question-view.js?v=custom-sync-1"></script>
+  <script src="custom-view.js?v=custom-sync-1"></script><script src="github-pages-client.js?v=custom-sync-1"></script>
 </body>
 </html>

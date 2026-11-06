@@ -29,7 +29,7 @@
     return { value: result, conflicts };
   }
 
-  function create({ read, apply, storage, fetch: request, onStatus, storageKey = KEY, changeDelayMs = 0 }) {
+  function create({ read, apply, storage, fetch: request, onStatus, storageKey = KEY, changeDelayMs = 0, validateMerged = () => [] }) {
     const conflictKey = storageKey === KEY ? "gre-cloud-conflict-backup-v1" : `${storageKey}:conflict`;
     let changeTimer;
     let base = null, revision = 0, busy = false, again = false, conflict = null;
@@ -68,12 +68,13 @@
         if (remote.state) {
           const merged = !base && !Object.keys(local.records).length
             ? { value: clone(remote.state), conflicts: [] } : merge(base, local, remote.state);
+          merged.conflicts = [...new Set([...merged.conflicts, ...validateMerged(merged.value)])];
           if (merged.conflicts.length) {
             conflict = { ...merged, local: clone(local), remote: remote.state, revision: remote.revision };
             ready = true; return;
           }
-          base = clone(remote.state); revision = remote.revision;
           apply(merged.value);
+          base = clone(remote.state); revision = remote.revision;
           persist();
         } else if (revision !== 0) {
           throw new Error("云端记录暂不可读，未覆盖或清空任何记录。");
@@ -108,9 +109,10 @@
         else if (side.records[key] === undefined) delete chosen.records[key];
         else chosen.records[key] = clone(side.records[key]);
       }
+      apply(chosen);
       base = clone(conflict.remote); revision = conflict.revision;
       conflict = null;
-      apply(chosen); persist();
+      persist();
       await sync(true);
     }
     status();

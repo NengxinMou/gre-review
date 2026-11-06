@@ -21,7 +21,29 @@
     const target = [3, 4, 5, 6, 7].includes(data.target) ? data.target : 5;
     return { format: "gre-custom-words-v1", words, records, target, session: null, muted: data.muted !== false };
   }
-  function create({ storage, key, scheduler, uuid, onError = () => {} }) {
+  function shared(state) {
+    return { version: 1, target: state.target, records: Object.fromEntries(state.words.map((word) => [word.id, { word: { id: word.id, word: word.word, meaning: word.meaning, note: word.note, archived: word.archived }, record: clone(state.records[word.id] || null) }])) };
+  }
+  function fromShared(data) {
+    if (!data || data.version !== 1 || ![3, 4, 5, 6, 7].includes(data.target) || !data.records || typeof data.records !== "object" || Array.isArray(data.records) || Object.keys(data).some((k) => !["version", "target", "records", "studyDayRule", "appliedUpdates", "list2Repair", "beforeDayUpdate"].includes(k))) throw new Error("云端生词格式不正确");
+    if (["studyDayRule", "appliedUpdates", "list2Repair", "beforeDayUpdate"].some((k) => data[k] != null)) throw new Error("云端生词包含不支持的字段");
+    const words = [], records = {};
+    for (const [id, bundle] of Object.entries(data.records)) {
+      if (!bundle || bundle.word?.id !== id || Object.keys(bundle).some((k) => !["word", "record"].includes(k))) throw new Error("云端生词编号不正确");
+      words.push(bundle.word); if (bundle.record !== null) records[id] = bundle.record;
+    }
+    return validate({ format: "gre-custom-words-v1", words, records, target: data.target });
+  }
+  function validShared(data) { try { fromShared(data); return true; } catch (_) { return false; } }
+  function duplicateConflicts(data) {
+    const names = new Map(), conflicts = new Set();
+    for (const [id, bundle] of Object.entries(data.records)) {
+      const name = normalize(bundle.word.word);
+      if (names.has(name)) { conflicts.add(names.get(name)); conflicts.add(id); } else names.set(name, id);
+    }
+    return [...conflicts];
+  }
+  function create({ storage, key, scheduler, uuid, onError = () => {}, onChange = () => {} }) {
     let state = { format: "gre-custom-words-v1", words: [], records: {}, target: 5, session: null, muted: true }, blocked = false, lastSaved = null;
     try {
       const raw = storage.getItem(key);
@@ -33,11 +55,12 @@
         if (s && Array.isArray(s.ids) && s.ids.length <= 20000 && s.ids.every((id) => active.has(id)) && Number.isInteger(s.index) && s.index >= 0 && s.index <= s.ids.length && ["correct", "wrong", "uncertain"].every((g) => Number.isSafeInteger(s.scores?.[g]) && s.scores[g] >= 0)) state.session = { ...s, undo: [] };
       }
     } catch (_) { blocked = true; onError("原始数据读取异常，已暂停写入。请先导出原始备份，再导入有效备份。"); }
-    function save() {
+    function save(sync = true) {
       if (blocked) throw new Error("原始记录读取异常，已暂停写入，请先导出备份");
       if (storage.getItem(key) !== lastSaved) throw new Error("另一页面更新了自建生词。请先导出当前页面备份，再刷新；未覆盖另一页面的记录。");
       try { const raw = JSON.stringify(state); storage.setItem(key, raw); lastSaved = raw; }
-      catch (_) { onError("无法自动保存，请保留页面并立即导出备份。"); }
+      catch (_) { onError("无法自动保存，请保留页面并立即导出备份。"); return; }
+      if (sync) onChange();
     }
     function upsert(input, id) {
       if (blocked) throw new Error("请先导出原始备份并修复数据");
@@ -53,7 +76,29 @@
       }
       Object.assign(existing, { word, meaning, note }); save(); return existing.id;
     }
+    function prepareCloud() {
+      if (blocked || storage.getItem(key) !== lastSaved) throw new Error("本机生词被另一页面修改或无法读取，请先导出备份再刷新");
+      if (state.words.length && !storage.getItem(`${key}:before-cloud`)) storage.setItem(`${key}:before-cloud`, JSON.stringify(state));
+    }
     return { read: () => clone(state), upsert,
+      prepareCloud,
+      beforeCloud() { return storage.getItem(`${key}:before-cloud`); },
+      shared() { if (blocked) throw new Error("本机生词读取异常，请先导出原始备份"); return shared(state); },
+      applyShared(data) {
+        const imported = fromShared(data);
+        prepareCloud();
+        if (JSON.stringify(shared(state)) === JSON.stringify(shared(imported))) return;
+        const session = state.session;
+        if (session) {
+          session.undo = [];
+          const active = new Set(imported.words.filter((w) => !w.archived).map((w) => w.id));
+          if (session.ids.slice(session.index).some((id) => !active.has(id))) imported.session = null;
+          else imported.session = session;
+        }
+        const next = { ...imported, muted: state.muted };
+        // Persist before replacing the in-memory model, so a failed apply cannot lose local work.
+        const raw = JSON.stringify(next); storage.setItem(key, raw); state = next; lastSaved = raw;
+      },
       archive(id, archived) { const w = state.words.find((w) => w.id === id); if (!w) return; w.archived = !!archived; state.session = null; save(); },
       start(count, now, zone, all = false) {
         const active = state.words.filter((w) => !w.archived);
@@ -66,11 +111,11 @@
       answer(grade, now, zone) { const result = scheduler.answer(state, grade, now, zone); if (result) { for (const r of Object.values(state.records)) r.history = r.history.slice(-500); save(); } return result; },
       undo() { const result = scheduler.undoAnswer(state); if (result) save(); return result; },
       end() { state.session = null; save(); },
-      mute(value) { state.muted = !!value; save(); },
+      mute(value) { state.muted = !!value; save(false); },
       target(value) { if (![3, 4, 5, 6, 7].includes(value)) return; state.target = value; save(); },
       import(data) { const next = validate(data); lastSaved = storage.getItem(key); state = next; blocked = false; save(); },
       exportText() { return blocked ? storage.getItem(key) : JSON.stringify({ ...state, session: null, exportedAt: new Date().toISOString() }, null, 2); }
     };
   }
-  return { create, validate, normalize };
+  return { create, validate, normalize, shared, fromShared, validShared, duplicateConflicts };
 });

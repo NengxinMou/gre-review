@@ -567,7 +567,7 @@
       },
       onStatus(info) {
         cloudBlocked = !info.ready || !!info.conflict.length;
-        const label = info.conflict.length ? "同步有冲突" : info.error ? "待同步" : info.busy ? "同步中" : info.pending ? "待同步" : "已同步";
+        const label = info.conflict.length ? "同步有冲突" : info.error ? "待同步" : info.busy ? "同步中" : info.pending ? "待同步" : "词表已同步";
         $("local-label").textContent = storageReady ? label : "无法本机保存";
         $("cloud-status").textContent = info.error || (info.conflict.length ? "相同记录存在不同修改，请选择冲突项。其他词的更新会保留。" : info.busy ? "正在同步进度" : info.pending ? "本机进度等待上传" : "手机与电脑进度已同步");
         $("sync-conflict").hidden = !info.conflict.length;

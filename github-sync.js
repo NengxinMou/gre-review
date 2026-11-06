@@ -1,8 +1,8 @@
 (function (root, factory) {
-  const api = factory();
+  const api = factory(typeof module === "object" && module.exports ? require("./custom-words.js") : root.GreCustomWords);
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.GreGithub = api;
-})(typeof window !== "undefined" ? window : globalThis, function () {
+})(typeof window !== "undefined" ? window : globalThis, function (customAPI) {
   "use strict";
   const FORMAT = "gre-github-progress-v1", MAX = 5_000_000, REPO = "gre-review-data";
   const encode = (bytes) => {
@@ -30,10 +30,14 @@
     if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/.test(owner)) throw new Error("GitHub 用户名不正确。");
     if (!/^github_pat_[a-zA-Z0-9_]{20,250}$/.test(token)) throw new Error("请使用只授权私有进度仓库的 Fine-grained 授权码，不要填写 GitHub 密码。");
   }
-  function create({ owner, token, fetch: request }) {
+  function create({ owner, token, fetch: request, dataset = "words" }) {
     config(owner, token);
+    if (!["words", "custom"].includes(dataset)) throw new Error("不支持此同步数据类型");
+    const custom = dataset === "custom", filename = custom ? "custom-words.json" : "progress.json";
+    const format = custom ? "gre-github-custom-words-v1" : FORMAT;
+    const validate = custom ? (state) => customAPI?.validShared(state) === true : validState;
     const baseURL = `https://api.github.com/repos/${owner}/${REPO}`;
-    let observed = null, branch = null, allowCreate = false;
+    let observed = null, branch = null, allowCreate = custom;
     async function api(path, options = {}) {
       const response = await request(baseURL + path, {
         ...options, credentials: "omit", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
@@ -59,11 +63,11 @@
     }
     async function read(signal) {
       await verify(signal);
-      const response = await api(`/contents/progress.json?ref=${encodeURIComponent(branch)}`, { signal });
+      const response = await api(`/contents/${filename}?ref=${encodeURIComponent(branch)}`, { signal });
       if (response.status === 404) { observed = { revision: 0, sha: null }; return { revision: 0, state: null }; }
       if (!response.ok) throw new Error("读取 GitHub 进度失败，未替换本机记录。");
       let file = await json(response);
-      if (file.type !== "file" || file.path !== "progress.json" || !/^[a-f0-9]{40,64}$/.test(file.sha) || file.size > MAX) throw new Error("云端进度文件异常，未替换本机记录。");
+      if (file.type !== "file" || file.path !== filename || !/^[a-f0-9]{40,64}$/.test(file.sha) || file.size > MAX) throw new Error("云端进度文件异常，未替换本机记录。");
       const sha = file.sha;
       // Large contents responses omit Base64; the immutable blob keeps data and SHA paired.
       if (file.encoding === "none") {
@@ -76,7 +80,7 @@
       const bytes = decode(file.content);
       if (bytes.length > MAX) throw new Error("云端文件过大，未替换本机记录。");
       const envelope = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
-      if (envelope.format !== FORMAT || !Number.isSafeInteger(envelope.revision) || envelope.revision < 1 || !validState(envelope.state)) throw new Error("云端记录校验失败，未替换本机记录。");
+      if (envelope.format !== format || !Number.isSafeInteger(envelope.revision) || envelope.revision < 1 || !validate(envelope.state)) throw new Error("云端记录校验失败，未替换本机记录。");
       observed = { revision: envelope.revision, sha };
       return { revision: envelope.revision, state: envelope.state };
     }
@@ -85,16 +89,16 @@
       if (options.method !== "PUT") throw new Error("不支持此同步操作。");
       const payload = JSON.parse(options.body);
       if (!observed || payload.revision !== observed.revision) return Response.json({}, { status: 409 });
-      if (!validState(payload.state)) throw new Error("本机记录校验失败，未上传任何记录。");
-      if (!observed.sha && (!allowCreate || !Object.keys(payload.state.records).length)) throw new Error("首次同步请先导入最新备份，再确认上传；不会用空白记录初始化云端。");
+      if (!validate(payload.state)) throw new Error("本机记录校验失败，未上传任何记录。");
+      if (!observed.sha && (!allowCreate || (!custom && !Object.keys(payload.state.records).length))) throw new Error("首次同步请先导入最新备份，再确认上传；不会用空白记录初始化云端。");
       await verify(options.signal);
-      const envelope = { format: FORMAT, revision: payload.revision + 1, state: payload.state };
+      const envelope = { format, revision: payload.revision + 1, state: payload.state };
       const bytes = textBytes(JSON.stringify(envelope));
       if (bytes.length > MAX) throw new Error("进度超过同步大小上限，请先导出备份。");
       const previousSHA = observed.sha;
-      const response = await api("/contents/progress.json", {
+      const response = await api(`/contents/${filename}`, {
         method: "PUT", signal: options.signal,
-        body: JSON.stringify({ message: "Sync GRE learning progress", content: encode(bytes), branch, ...(previousSHA ? { sha: previousSHA } : {}) })
+        body: JSON.stringify({ message: custom ? "Sync private custom vocabulary" : "Sync GRE learning progress", content: encode(bytes), branch, ...(previousSHA ? { sha: previousSHA } : {}) })
       });
       if (response.status === 409) return Response.json({}, { status: 409 });
       if (response.status === 422) {
@@ -108,7 +112,7 @@
       observed = { revision: envelope.revision, sha: saved.content.sha };
       return Response.json({ revision: envelope.revision });
     }
-    return { fetch: transport, read, allowInitialization() { allowCreate = true; }, storageKey: `gre-github-sync-v1:${owner.toLowerCase()}/${REPO}` };
+    return { fetch: transport, read, allowInitialization() { allowCreate = true; }, storageKey: `gre-github-sync-v1:${owner.toLowerCase()}/${REPO}${custom ? ":custom-words" : ""}` };
   }
   async function key(password, salt) {
     const material = await crypto.subtle.importKey("raw", textBytes(password), "PBKDF2", false, ["deriveKey"]);
