@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-title" content="GRE 复习">
   <link rel="manifest" href="manifest.webmanifest">
   <title>GRE 词义复习</title>
-  <link rel="stylesheet" href="styles.css?v=study-time-zone-1">
+  <link rel="stylesheet" href="styles.css?v=custom-words-1">
 <meta name="gre-deployment" content="github-pages"><meta name="gre-storage-key" content="gre-review-github-pages-v1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src https://dict.youdao.com https://dictionary.cambridge.org; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'self'; form-action 'none'"></head>
 <body>
   <div class="app-shell">
@@ -19,6 +19,7 @@
         <button class="nav-tab" data-view="daily">每日复习 <span id="daily-due-count" class="daily-badge">0</span></button>
         <button class="nav-tab" data-view="mistakes">错词</button>
         <button class="nav-tab" data-view="questions">错题本</button>
+        <button class="nav-tab" data-view="custom">自建生词</button>
         <button class="nav-tab" data-view="stats">统计</button>
         <button class="nav-tab" data-view="settings">设置</button>
       </nav>
@@ -112,6 +113,33 @@
           </div>
         </section>
 
+        <section id="custom-view" class="view" aria-label="自建生词" hidden>
+          <div class="question-shell">
+            <div class="question-heading"><div><p class="eyebrow">MY VOCABULARY</p><h1>自建生词</h1></div><span id="custom-status" role="status">生词与进度 · 仅本机保存，不参与云端同步</span></div>
+            <div id="custom-home">
+              <div class="question-metrics" id="custom-metrics"></div>
+              <div class="question-start-actions"><button class="primary-button" id="custom-add">添加生词</button><button class="outline-button" id="custom-start">复习到期词 / 新词</button><button class="outline-button" id="custom-resume" hidden>继续本轮</button><button class="outline-button" id="custom-all">随机巩固</button><select id="custom-count" aria-label="自建生词本轮词数"><option value="5">5 词</option><option value="10">10 词</option><option value="20">20 词</option></select></div>
+              <form id="custom-form" class="custom-form" hidden>
+                <h2 id="custom-form-title">添加生词</h2>
+                <label>单词 / 短语<input id="custom-word" required maxlength="160" autocomplete="off" placeholder="例如：cliche"></label>
+                <label>要背的中文释义<textarea id="custom-meaning" required maxlength="2000" rows="2" placeholder="填写你在 GRE 题目里遇到的含义"></textarea></label>
+                <label>例句 / 来源 / 备注（选填）<textarea id="custom-note" maxlength="3000" rows="2"></textarea></label>
+                <div class="question-start-actions"><button class="primary-button" type="submit">保存生词</button><button class="outline-button" id="custom-cancel" type="button">取消</button></div>
+              </form>
+              <div class="filters"><input type="search" id="custom-search" aria-label="搜索自建生词" placeholder="搜索单词、释义或备注"><select id="custom-filter" aria-label="自建生词筛选"><option value="active">在背的词</option><option value="due">到期 / 新词</option><option value="mistakes">忘了 / 不确定过</option><option value="archived">已归档</option></select></div>
+              <div id="custom-list"></div>
+              <div class="question-backup"><button class="outline-button" id="custom-export">导出生词与进度</button><label class="outline-button file-label" for="custom-import">导入备份</label><input type="file" id="custom-import" accept="application/json,.json" hidden><label>掌握目标 <select id="custom-target" aria-label="自建生词掌握目标"><option value="3">3 次</option><option value="4">4 次</option><option value="5" selected>5 次</option><option value="6">6 次</option><option value="7">7 次</option></select></label></div>
+            </div>
+            <div id="custom-practice" hidden>
+              <div class="question-practice-top"><button class="icon-button" id="custom-back" aria-label="返回生词列表" title="返回生词列表，保留本轮"><i data-lucide="arrow-left" aria-hidden="true"></i></button><span id="custom-progress"></span><button class="icon-button" id="custom-undo" aria-label="撤回自建生词上一次评分" title="撤回上一次评分"><i data-lucide="undo-2" aria-hidden="true"></i></button><button class="icon-button" id="custom-replay" aria-label="播放自建生词发音" title="播放美式发音"><i data-lucide="volume-2" aria-hidden="true"></i></button><label class="audio-toggle"><input type="checkbox" id="custom-muted">静音</label></div>
+              <p id="custom-audio-status" class="source-note" role="status"></p>
+              <div id="custom-card" class="custom-card"><h2 id="custom-card-word"></h2><div id="custom-answer" hidden><p id="custom-card-meaning"></p><p id="custom-card-note"></p></div></div>
+              <div class="card-actions"><button class="primary-button" id="custom-reveal">显示释义 <kbd class="shortcut-key">Space</kbd></button><div id="custom-grades" class="grade-actions" hidden><button class="grade-button wrong" data-custom-grade="wrong">忘了 <kbd class="shortcut-key">1</kbd><small>重新补练 3 次</small></button><button class="grade-button unsure" data-custom-grade="uncertain">不确定 <kbd class="shortcut-key">2</kbd><small>重新补练 1 次</small></button><button class="grade-button correct" data-custom-grade="correct">记住了 <kbd class="shortcut-key">3</kbd><small id="custom-credit"></small></button></div></div>
+              <p id="custom-card-stat" class="source-note"></p><button class="text-button" id="custom-end">结束本轮</button>
+            </div>
+          </div>
+        </section>
+
         <section id="stats-view" class="view list-view" aria-label="统计" hidden>
           <div class="view-heading"><div><p class="eyebrow">学习统计</p><h1>复习进度</h1></div></div>
           <div class="stat-strip"><div><strong id="stat-seen">0</strong><span>见过的词</span></div><div><strong id="stat-mastered">0</strong><span>已掌握</span></div><div><strong id="stat-due">0</strong><span>今天到期</span></div><div><strong id="stat-wrong">0</strong><span>未记住次数</span></div></div>
@@ -164,14 +192,16 @@
     </div>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="words.js?v=study-time-zone-1"></script>
-  <script src="scheduler.js?v=study-time-zone-1"></script>
-  <script src="lucide.min.js?v=study-time-zone-1"></script>
-  <script src="pronunciation.js?v=study-time-zone-1"></script>
-  <script src="sync.js?v=study-time-zone-1"></script>
-  <script src="questions.js?v=study-time-zone-1"></script>
-  <script src="question-practice.js?v=study-time-zone-1"></script>
-  <script src="github-sync.js?v=study-time-zone-1"></script><script src="app.js?v=study-time-zone-1"></script><script src="github-pages-client.js?v=study-time-zone-1"></script>
-  <script src="question-view.js?v=study-time-zone-1"></script>
+  <script src="words.js?v=custom-words-1"></script>
+  <script src="scheduler.js?v=custom-words-1"></script>
+  <script src="lucide.min.js?v=custom-words-1"></script>
+  <script src="pronunciation.js?v=custom-words-1"></script>
+  <script src="sync.js?v=custom-words-1"></script>
+  <script src="questions.js?v=custom-words-1"></script>
+  <script src="question-practice.js?v=custom-words-1"></script>
+  <script src="github-sync.js?v=custom-words-1"></script><script src="app.js?v=custom-words-1"></script><script src="github-pages-client.js?v=custom-words-1"></script>
+  <script src="question-view.js?v=custom-words-1"></script>
+  <script src="custom-words.js?v=custom-words-1"></script>
+  <script src="custom-view.js?v=custom-words-1"></script>
 </body>
 </html>

@@ -359,7 +359,7 @@
     if (![...timeZoneSelect.options].some((option) => option.value === studyTimeZone)) timeZoneSelect.add(new Option(studyTimeZone, studyTimeZone));
     timeZoneSelect.value = studyTimeZone;
     $("study-time-zone-status").textContent = timeZoneNotice || `当前复习日：${Scheduler.dateKey(today(), studyTimeZone)}，所选时区凌晨 4:00 换日。此设置保存在当前浏览器，不跟随系统变化；跨设备使用时请选相同时区。`;
-    $("section-label").textContent = currentView === "questions" ? "GRE 错题本" : selectionLabel();
+    $("section-label").textContent = currentView === "custom" ? "自建生词" : currentView === "questions" ? "GRE 错题本" : selectionLabel();
     $("mastery-target").value = String(state.target);
     renderNavigation();
     renderInsight();
@@ -378,8 +378,8 @@
 
   function showView(view) {
     currentView = view;
-    document.querySelector(".workspace").classList.toggle("questions-mode", view === "questions");
-    $("section-label").textContent = view === "questions" ? "GRE 错题本" : selectionLabel();
+    document.querySelector(".workspace").classList.toggle("questions-mode", ["questions", "custom"].includes(view));
+    $("section-label").textContent = view === "custom" ? "自建生词" : view === "questions" ? "GRE 错题本" : selectionLabel();
     renderTabs();
     all(".view").forEach((section) => {
       const active = section.id === `${view}-view`;
