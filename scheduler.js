@@ -5,6 +5,7 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   const DAY = 86400000;
   const INTERVALS = [1, 2, 4, 7];
+  const validTarget = (value) => Number.isInteger(value) && value >= 3 && value <= 7;
   const STUDY_DAY_RULE = "local-04:00-v1";
   const LIST2_REPAIR = "list2-two-to-one-20261001";
   const REPAIR_CUTOFF = Date.parse("2026-10-01T00:06:32+08:00");
@@ -72,6 +73,26 @@
     return { attempts: 0, correct: 0, wrong: 0, uncertain: 0, streak: 0, due: null, last: null, lastAdvanceDay: null, lastRecallDay: null, history: [] };
   }
 
+  // Legacy consecutive scores are the starting level; existing records stay untouched.
+  function mastery(record) {
+    return record?.mastery ?? record?.streak ?? 0;
+  }
+
+  function validProgress(record) {
+    return (!Object.hasOwn(record, "mastery") || (Number.isFinite(record.mastery) && record.mastery >= 0 && record.mastery <= 7 && Number.isInteger(record.mastery * 2))) &&
+      (!Object.hasOwn(record, "masteryPenalty") || [0.5, 1].includes(record.masteryPenalty)) &&
+      (!Object.hasOwn(record, "masteryPenaltyAt") || Number.isFinite(record.masteryPenaltyAt)) &&
+      ["recallPending", "slowRecallPending"].every((key) => !Object.hasOwn(record, key) || typeof record[key] === "boolean");
+  }
+
+  function pendingRecall(record) {
+    return record?.recallPending === true || record?.slowRecallPending === true;
+  }
+
+  function reviewInterval(record) {
+    return pendingRecall(record) ? 1 : INTERVALS[Math.min(Math.max(Math.floor(mastery(record)) - 1, 0), INTERVALS.length - 1)];
+  }
+
   function canAdvance(record, now, firstInRound = true, timeZone = DEFAULT_TIME_ZONE) {
     const studyDay = dayStart(now, timeZone);
     const previousRecallDay = Number.isFinite(record.last) ? dayStart(record.last, timeZone) : Number.isFinite(record.lastRecallDay) ? dayStart(record.lastRecallDay, timeZone) : null;
@@ -83,32 +104,50 @@
     const next = { ...emptyRecord(), ...record };
     const studyDay = dayStart(now, timeZone);
     const eligible = canAdvance(record, now, firstInRound, timeZone);
+    const previousLevel = mastery(record);
+    next.mastery = previousLevel;
     next.history = [...(record.history || [])];
     next.attempts += 1;
     next.last = now;
     next.lastRecallDay = studyDay;
-    if (grade === "correct") {
+    if (grade === "correct" || grade === "slow") {
       next.correct += 1;
-      if (eligible) {
+      if (eligible && grade === "correct") {
         next.streak = Math.min(next.streak + 1, target);
         next.lastAdvanceDay = studyDay;
+        next.mastery = Math.max(previousLevel, Math.min(previousLevel + 1, target));
+        delete next.slowRecallPending;
+        delete next.recallPending;
       }
-      next.due = next.streak >= target ? null : addDays(studyDay, INTERVALS[Math.min(Math.max(next.streak - 1, 0), INTERVALS.length - 1)], timeZone);
+      if (grade === "slow") next.slowRecallPending = true;
+      // Slow recall retains earned progress but never earns mastery credit.
+      next.due = !pendingRecall(next) && next.mastery >= target ? null : addDays(studyDay, reviewInterval(next), timeZone);
     } else if (grade === "wrong" || grade === "uncertain") {
       next[grade] += 1;
       next.streak = 0;
+      // At most one level lost per study day. A later wrong answer upgrades an
+      // uncertain half-level penalty to one, rather than repeatedly charging retries.
+      const previousPenalty = Number.isFinite(record.masteryPenaltyAt) && dayStart(record.masteryPenaltyAt, timeZone) === studyDay ? record.masteryPenalty || 0 : 0;
+      const penalty = grade === "wrong" ? 1 : 0.5;
+      next.mastery = Math.max(0, previousLevel - Math.max(0, penalty - previousPenalty));
+      next.masteryPenalty = Math.max(previousPenalty, penalty);
+      next.masteryPenaltyAt = now;
+      next.recallPending = true;
+      delete next.slowRecallPending;
       next.due = addDays(studyDay, 1, timeZone);
     } else {
       throw new Error("Unknown grade: " + grade);
     }
-    next.history.push({ at: now, grade, masteryCredit: grade === "correct" && eligible });
+    // Keep the existing three-grade storage format; slow recall is a correct
+    // answer with explicit quality metadata, so exports and old histories survive.
+    next.history.push({ at: now, grade: grade === "slow" ? "correct" : grade, masteryCredit: grade === "correct" && eligible, masteryDelta: next.mastery - previousLevel, ...(grade === "slow" ? { recallQuality: "slow" } : {}) });
     return next;
   }
 
   function answer(state, grade, now, timeZone = DEFAULT_TIME_ZONE) {
     const session = state.session;
     if (!session?.revealed || session.index >= session.ids.length) return false;
-    if (!["correct", "wrong", "uncertain"].includes(grade)) return false;
+    if (!["correct", "slow", "wrong", "uncertain"].includes(grade)) return false;
     const id = session.ids[session.index];
     session.undo = session.undo || [];
     // Save only the changed record and queue state, never nested undo stacks.
@@ -116,7 +155,7 @@
       ids: [...session.ids], index: session.index, retries: { ...(session.retries || {}) }, scores: { ...session.scores } });
     const firstInRound = !session.ids.slice(0, session.index).includes(id);
     state.records[id] = outcome(state.records[id] || emptyRecord(), grade, now, state.target, firstInRound, timeZone);
-    session.scores[grade]++;
+    session.scores[grade] = (session.scores[grade] || 0) + 1;
     scheduleRetries(session, id, grade);
     session.index++;
     session.revealed = false;
@@ -135,14 +174,14 @@
 
   function dueAt(record, timeZone = DEFAULT_TIME_ZONE) {
     // Reinterpret the existing interval without rewriting records made in another zone.
-    if (!Number.isFinite(record?.due) || !Number.isFinite(record.last)) return record?.due;
-    const interval = INTERVALS[Math.min(Math.max(record.streak - 1, 0), INTERVALS.length - 1)];
+    if (!Number.isFinite(record?.last)) return record?.due;
+    const interval = reviewInterval(record);
     return addDays(dayStart(record.last, timeZone), interval, timeZone);
   }
 
   function status(record, now, target = 5, timeZone = DEFAULT_TIME_ZONE) {
     if (!record || !record.attempts) return "new";
-    if (record.streak >= target) return "mastered";
+    if (mastery(record) >= target && !pendingRecall(record)) return "mastered";
     return dueAt(record, timeZone) <= dayStart(now, timeZone) ? "due" : "waiting";
   }
 
@@ -185,7 +224,7 @@
   }
 
   function scheduleRetries(session, id, grade) {
-    const desired = grade === "wrong" ? 3 : grade === "uncertain" ? 1 : 0;
+    const desired = grade === "wrong" ? 3 : ["uncertain", "slow"].includes(grade) ? 1 : 0;
     session.retries = session.retries || {};
     // A failed retry replaces the remaining work, rather than hitting a lifetime cap.
     if (desired) session.ids = [...session.ids.slice(0, session.index + 1), ...session.ids.slice(session.index + 1).filter((word) => word !== id)];
@@ -300,5 +339,5 @@
     return { changed: true, repaired };
   }
 
-  return { DAY, STUDY_DAY_RULE, LIST2_REPAIR, REPAIR_CUTOFF, DEFAULT_TIME_ZONE, normalizeTimeZone, dayStart, addDays, dateKey, dueAt, emptyRecord, canAdvance, outcome, answer, undoAnswer, status, pickQueue, dailyWords, pickDailyQueue, scheduleRetries, upgradeState };
+  return { DAY, STUDY_DAY_RULE, LIST2_REPAIR, REPAIR_CUTOFF, DEFAULT_TIME_ZONE, validTarget, mastery, validProgress, normalizeTimeZone, dayStart, addDays, dateKey, dueAt, emptyRecord, canAdvance, outcome, answer, undoAnswer, status, pickQueue, dailyWords, pickDailyQueue, scheduleRetries, upgradeState };
 });

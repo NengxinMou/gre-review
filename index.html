@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-title" content="GRE 复习">
   <link rel="manifest" href="manifest.webmanifest">
   <title>GRE 词义复习</title>
-  <link rel="stylesheet" href="styles.css?v=custom-sync-1">
+  <link rel="stylesheet" href="styles.css?v=accumulated-mastery-1">
 <meta name="gre-deployment" content="github-pages"><meta name="gre-storage-key" content="gre-review-github-pages-v1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src https://dict.youdao.com https://dictionary.cambridge.org; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'self'; form-action 'none'"></head>
 <body>
   <div class="app-shell">
@@ -66,9 +66,10 @@
             <div class="card-actions">
               <button class="primary-button reveal-button" id="reveal-answer" aria-keyshortcuts="Space" title="显示释义（空格键）">显示释义 <kbd class="shortcut-key">Space</kbd></button>
               <div id="grade-actions" class="grade-actions" hidden>
-                <button class="grade-button wrong" data-grade="wrong" aria-keyshortcuts="1" title="忘了（数字键 1）"><span class="grade-label">忘了 <kbd class="shortcut-key">1</kbd></span><small>本轮再练 3 次</small></button>
-                <button class="grade-button unsure" data-grade="uncertain" aria-keyshortcuts="2" title="不确定（数字键 2）"><span class="grade-label">不确定 <kbd class="shortcut-key">2</kbd></span><small>本轮再练 1 次</small></button>
-                <button class="grade-button correct" data-grade="correct" aria-keyshortcuts="3" title="记住了（数字键 3）"><span class="grade-label">记住了 <kbd class="shortcut-key">3</kbd></span><small id="correct-credit">首次答对计进度</small></button>
+                <button class="grade-button wrong" data-grade="wrong" aria-keyshortcuts="1" title="忘了（数字键 1）"><span class="grade-label">忘了 <kbd class="shortcut-key">1</kbd></span><small>退 1 级 · 本轮再练 3 次</small></button>
+                <button class="grade-button unsure" data-grade="uncertain" aria-keyshortcuts="2" title="不确定（数字键 2）"><span class="grade-label">不确定 <kbd class="shortcut-key">2</kbd></span><small>退 0.5 级 · 本轮再练 1 次</small></button>
+                <button class="grade-button slow" data-grade="slow" aria-keyshortcuts="4" title="想起来了，但不熟（数字键 4）"><span class="grade-label">想起来了，但不熟 <kbd class="shortcut-key">4</kbd></span><small>保留进度 · 补练 1 次 · 明天复习</small></button>
+                <button class="grade-button correct" data-grade="correct" aria-keyshortcuts="3" title="迅速想起（数字键 3）"><span class="grade-label">迅速想起 <kbd class="shortcut-key">3</kbd></span><small id="correct-credit">首次答对计进度</small></button>
               </div>
             </div>
             <div class="session-foot"><div><span>本轮进度</span><strong id="session-progress-text">0 / 10</strong></div><div class="progress-track"><div id="session-progress-bar"></div></div><button class="text-button" id="end-session">结束本轮</button></div>
@@ -76,7 +77,7 @@
 
           <div id="session-done" class="session-done" hidden>
             <p class="eyebrow">本轮完成</p><h1>先停一下，已经做完这一轮。</h1>
-            <div class="done-metrics"><div><strong id="done-correct">0</strong><span>记住</span></div><div><strong id="done-uncertain">0</strong><span>不确定</span></div><div><strong id="done-wrong">0</strong><span>忘了</span></div></div>
+            <div class="done-metrics"><div><strong id="done-correct">0</strong><span>迅速想起</span></div><div><strong id="done-slow">0</strong><span>想起但不熟</span></div><div><strong id="done-uncertain">0</strong><span>不确定</span></div><div><strong id="done-wrong">0</strong><span>忘了</span></div></div>
             <div class="done-actions"><button class="primary-button" id="done-continue">返回词表</button><button type="button" id="undo-done" class="icon-button" title="撤回上一次答题" aria-label="撤回最后一次答题" disabled><i data-lucide="undo-2" aria-hidden="true"></i></button></div>
           </div>
         </section>
@@ -130,13 +131,13 @@
               </form>
               <div class="filters"><input type="search" id="custom-search" aria-label="搜索自建生词" placeholder="搜索单词、释义或备注"><select id="custom-filter" aria-label="自建生词筛选"><option value="active">在背的词</option><option value="due">到期 / 新词</option><option value="mistakes">忘了 / 不确定过</option><option value="archived">已归档</option></select></div>
               <div id="custom-list"></div>
-              <div class="question-backup"><button class="outline-button" id="custom-export">导出生词与进度</button><label class="outline-button file-label" for="custom-import">导入备份</label><input type="file" id="custom-import" accept="application/json,.json" hidden><label>掌握目标 <select id="custom-target" aria-label="自建生词掌握目标"><option value="3">3 次</option><option value="4">4 次</option><option value="5" selected>5 次</option><option value="6">6 次</option><option value="7">7 次</option></select></label></div>
+              <div class="question-backup"><button class="outline-button" id="custom-export">导出生词与进度</button><label class="outline-button file-label" for="custom-import">导入备份</label><input type="file" id="custom-import" accept="application/json,.json" hidden><label>掌握目标 <select id="custom-target" aria-label="自建生词掌握目标"><option value="3">3 级</option><option value="4">4 级</option><option value="5" selected>5 级</option><option value="6">6 级</option><option value="7">7 级</option></select></label></div>
             </div>
             <div id="custom-practice" hidden>
               <div class="question-practice-top"><button class="icon-button" id="custom-back" aria-label="返回生词列表" title="返回生词列表，保留本轮"><i data-lucide="arrow-left" aria-hidden="true"></i></button><span id="custom-progress"></span><button class="icon-button" id="custom-undo" aria-label="撤回自建生词上一次评分" title="撤回上一次评分"><i data-lucide="undo-2" aria-hidden="true"></i></button><button class="icon-button" id="custom-replay" aria-label="播放自建生词发音" title="播放美式发音"><i data-lucide="volume-2" aria-hidden="true"></i></button><label class="audio-toggle"><input type="checkbox" id="custom-muted">静音</label></div>
               <p id="custom-audio-status" class="source-note" role="status"></p>
               <div id="custom-card" class="custom-card"><h2 id="custom-card-word"></h2><div id="custom-answer" hidden><p id="custom-card-meaning"></p><p id="custom-card-note"></p></div></div>
-              <div class="card-actions"><button class="primary-button" id="custom-reveal">显示释义 <kbd class="shortcut-key">Space</kbd></button><div id="custom-grades" class="grade-actions" hidden><button class="grade-button wrong" data-custom-grade="wrong">忘了 <kbd class="shortcut-key">1</kbd><small>重新补练 3 次</small></button><button class="grade-button unsure" data-custom-grade="uncertain">不确定 <kbd class="shortcut-key">2</kbd><small>重新补练 1 次</small></button><button class="grade-button correct" data-custom-grade="correct">记住了 <kbd class="shortcut-key">3</kbd><small id="custom-credit"></small></button></div></div>
+              <div class="card-actions"><button class="primary-button" id="custom-reveal">显示释义 <kbd class="shortcut-key">Space</kbd></button><div id="custom-grades" class="grade-actions" hidden><button class="grade-button wrong" data-custom-grade="wrong">忘了 <kbd class="shortcut-key">1</kbd><small>退 1 级 · 重新补练 3 次</small></button><button class="grade-button unsure" data-custom-grade="uncertain">不确定 <kbd class="shortcut-key">2</kbd><small>退 0.5 级 · 重新补练 1 次</small></button><button class="grade-button slow" data-custom-grade="slow" aria-keyshortcuts="4" title="想起来了，但不熟（数字键 4）">想起来了，但不熟 <kbd class="shortcut-key">4</kbd><small>保留进度 · 补练 1 次 · 明天复习</small></button><button class="grade-button correct" data-custom-grade="correct">迅速想起 <kbd class="shortcut-key">3</kbd><small id="custom-credit"></small></button></div></div>
               <p id="custom-card-stat" class="source-note"></p><button class="text-button" id="custom-end">结束本轮</button>
             </div>
           </div>
@@ -150,8 +151,8 @@
 
         <section id="settings-view" class="view list-view" aria-label="设置" hidden>
           <div class="view-heading"><div><p class="eyebrow">设置</p><h1>复习规则与数据</h1></div></div>
-          <div class="setting-row" id="pages-import-notice" role="status"><div><strong>新网址尚未导入学习记录</strong><p>旧网址的记录没有被删除。请在下方导入今天导出的备份。</p></div><label class="outline-button file-label" for="import-file">导入备份</label></div><div class="setting-row"><div><strong>掌握所需连续正确次数</strong><p>默认 5 次。当天首次作答选“记住了”才计进度；忘了或不确定会清零，补练答对不计进度。</p></div><select id="mastery-target" aria-label="掌握所需次数"><option value="3">3 次</option><option value="4">4 次</option><option value="5">5 次</option><option value="6">6 次</option><option value="7">7 次</option></select></div>
-          <div class="setting-row"><div><strong>复习间隔</strong><p>每次记住后，依次在 1、2、4、7 天后复习。一天内重复答对不会连跳多级。</p></div></div>
+          <div class="setting-row" id="pages-import-notice" role="status"><div><strong>新网址尚未导入学习记录</strong><p>旧网址的记录没有被删除。请在下方导入今天导出的备份。</p></div><label class="outline-button file-label" for="import-file">导入备份</label></div><div class="setting-row"><div><strong>掌握所需熟练度</strong><p>默认 5 级，可选 3～7 级。当天首次作答选“迅速想起”加 1 级；想起但不熟保持进度；忘了退 1 级，不确定退 0.5 级。同一个学习日最多退 1 级，补练不重复扣分，也不升级。原有进度保留，不要求连续答对。</p></div><select id="mastery-target" aria-label="掌握所需级数"><option value="3">3 级</option><option value="4">4 级</option><option value="5">5 级</option><option value="6">6 级</option><option value="7">7 级</option></select></div>
+          <div class="setting-row"><div><strong>复习间隔</strong><p>迅速想起后，按当前熟练度安排：不足 2 级隔 1 天，2～不足 3 级隔 2 天，3～不足 4 级隔 4 天，4 级起隔 7 天，达到目标后移出日常队列。不熟的词次日再练；同一天补练不升级。按自己的反应选择，不设倒计时。</p></div></div>
           <div class="setting-row"><div><strong>复习时区</strong><p id="study-time-zone-status">默认固定北京时间，不跟随设备时区变化。</p></div><select id="study-time-zone" aria-label="复习时区"><option value="Asia/Shanghai">中国 · 北京 / 上海</option><option value="America/New_York">美国 · 亚特兰大 / 纽约</option><option value="America/Chicago">美国 · 芝加哥</option><option value="America/Denver">美国 · 丹佛</option><option value="America/Los_Angeles">美国 · 洛杉矶</option><option value="Europe/London">英国 · 伦敦</option><option value="Europe/Paris">法国 · 巴黎</option><option value="Asia/Tokyo">日本 · 东京</option><option value="Asia/Singapore">新加坡</option><option value="Australia/Sydney">澳大利亚 · 悉尼</option><option value="UTC">UTC</option></select></div>
           <div class="setting-row"><div><strong>每日分界</strong><p>按上方选定时区，凌晨 4:00 开始新一天。午夜到 3:59 的复习仍属于前一天；支持夏令时的地区自动按当地时间计算。</p></div></div>
           <div class="setting-row"><div><strong>当轮重复</strong><p>忘了后重新安排 3 次，不确定后重新安排 1 次。补练中再次忘了或不确定，也会重置对应的剩余次数；旧补练不叠加。</p></div></div>
@@ -187,23 +188,23 @@
 
       <aside class="insight-rail" aria-label="学习概况">
         <section class="insight-block"><div class="insight-heading"><strong>当前词表</strong><span id="insight-list">List 1</span></div><div class="insight-numbers"><div><strong id="insight-due">0</strong><span>到期</span></div><div><strong id="insight-new">50</strong><span>未见</span></div><div><strong id="insight-mastered">0</strong><span>掌握</span></div></div><div class="progress-track"><div id="mastery-progress"></div></div></section>
-        <section class="insight-block"><div class="insight-heading"><strong>记忆进度</strong><span>连续正确</span></div><div class="stage-list" id="stage-list"></div></section>
+        <section class="insight-block"><div class="insight-heading"><strong>记忆进度</strong><span>熟练度</span></div><div class="stage-list" id="stage-list"></div></section>
         <section class="insight-block"><div class="insight-heading"><strong>当前词</strong></div><div id="current-word-stat" class="current-word-stat">开始一轮后，这里会显示这张卡的记录。</div></section>
         <section class="insight-block recent-block"><div class="insight-heading"><strong>最近错词</strong><button class="text-button" id="show-mistakes">查看全部</button></div><div id="recent-mistakes"></div></section>
       </aside>
     </div>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="words.js?v=custom-sync-1"></script>
-  <script src="scheduler.js?v=custom-sync-1"></script>
-  <script src="lucide.min.js?v=custom-sync-1"></script>
-  <script src="pronunciation.js?v=custom-sync-1"></script>
-  <script src="sync.js?v=custom-sync-1"></script>
-  <script src="questions.js?v=custom-sync-1"></script>
-  <script src="question-practice.js?v=custom-sync-1"></script>
-  <script src="custom-words.js?v=custom-sync-1"></script>
-  <script src="github-sync.js?v=custom-sync-1"></script><script src="app.js?v=custom-sync-1"></script>
-  <script src="question-view.js?v=custom-sync-1"></script>
-  <script src="custom-view.js?v=custom-sync-1"></script><script src="github-pages-client.js?v=custom-sync-1"></script>
+  <script src="words.js?v=accumulated-mastery-1"></script>
+  <script src="scheduler.js?v=accumulated-mastery-1"></script>
+  <script src="lucide.min.js?v=accumulated-mastery-1"></script>
+  <script src="pronunciation.js?v=accumulated-mastery-1"></script>
+  <script src="sync.js?v=accumulated-mastery-1"></script>
+  <script src="questions.js?v=accumulated-mastery-1"></script>
+  <script src="question-practice.js?v=accumulated-mastery-1"></script>
+  <script src="custom-words.js?v=accumulated-mastery-1"></script>
+  <script src="github-sync.js?v=accumulated-mastery-1"></script><script src="app.js?v=accumulated-mastery-1"></script>
+  <script src="question-view.js?v=accumulated-mastery-1"></script>
+  <script src="custom-view.js?v=accumulated-mastery-1"></script><script src="github-pages-client.js?v=accumulated-mastery-1"></script>
 </body>
 </html>

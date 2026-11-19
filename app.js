@@ -43,7 +43,7 @@
       const state = { ...blankState(), ...parsed };
       state.studyDayRule = parsed.studyDayRule || null;
       state.appliedUpdates = Array.isArray(parsed.appliedUpdates) ? parsed.appliedUpdates : [];
-      if (![3, 4, 5, 6, 7].includes(state.target)) state.target = 5;
+      if (!Scheduler.validTarget(state.target)) state.target = 5;
       if (!validSelection(state.selected)) state.selected = 1;
       if (!validSelection(parsed.lastList) && state.selected !== "daily") state.lastList = state.selected;
       if (!validSelection(state.lastList) || state.lastList === "daily") state.lastList = 1;
@@ -211,11 +211,13 @@
     const counts = Array(state.target).fill(0);
     words.forEach((word) => {
       const record = state.records[word.id];
-      if (record?.streak > 0) counts[Math.min(record.streak, state.target) - 1]++;
+      const level = Scheduler.mastery(record);
+      if (level > 0) counts[Math.min(Math.ceil(level), state.target) - 1]++;
     });
     counts.forEach((count, index) => {
       const row = node("div", "stage-row");
-      row.append(node("span", "", `${index + 1} / ${state.target}`), node("strong", "", count));
+      row.append(node("span", "", `${index}～${index + 1} 级`), node("strong", "", count));
+      row.title = `熟练度大于 ${index}、不超过 ${index + 1} 级`;
       const track = node("div", "progress-track");
       const bar = node("div");
       bar.style.width = `${Math.round(count / Math.max(words.length, 1) * 100)}%`;
@@ -245,7 +247,7 @@
       return;
     }
     const record = state.records[id] || Scheduler.emptyRecord();
-    container.append(node("strong", "", `${record.streak} / ${state.target} 次连续正确`), document.createElement("br"), document.createTextNode(`答错 ${record.wrong} 次 · 不确定 ${record.uncertain} 次 · 已作答 ${record.attempts} 次`));
+    container.append(node("strong", "", `${Scheduler.mastery(record)} / ${state.target} 级熟练度`), document.createElement("br"), document.createTextNode(`答错 ${record.wrong} 次 · 不确定 ${record.uncertain} 次 · 已作答 ${record.attempts} 次`));
   }
 
   function showStudyPart(part) {
@@ -271,13 +273,14 @@
       $("reveal-answer").hidden = !!session.revealed;
       $("grade-actions").hidden = !session.revealed;
       const firstInRound = !session.ids.slice(0, session.index).includes(word.id);
-      $("correct-credit").textContent = Scheduler.canAdvance(state.records[word.id] || Scheduler.emptyRecord(), Date.now(), firstInRound, studyTimeZone) ? "计入连续正确" : "只巩固，不计进度";
+      $("correct-credit").textContent = Scheduler.canAdvance(state.records[word.id] || Scheduler.emptyRecord(), Date.now(), firstInRound, studyTimeZone) ? "熟练度 +1 级" : "只巩固，不计进度";
       $("session-progress-text").textContent = `${session.index} / ${session.ids.length}`;
       $("session-progress-bar").style.width = `${Math.round(session.index / session.ids.length * 100)}%`;
       syncWordAudio();
     } else if (state.session) {
       showStudyPart("done");
       $("done-correct").textContent = state.session.scores.correct;
+      $("done-slow").textContent = state.session.scores.slow || 0;
       $("done-uncertain").textContent = state.session.scores.uncertain;
       $("done-wrong").textContent = state.session.scores.wrong;
       syncWordAudio();
@@ -437,9 +440,10 @@
       if (!WORD_BY_ID.has(id) || !record || typeof record !== "object") continue;
       if (!["attempts", "correct", "wrong", "uncertain", "streak"].every((key) => Number.isInteger(record[key]) && record[key] >= 0)) continue;
       if (record.attempts !== record.correct + record.wrong + record.uncertain) continue;
+      if (!Scheduler.validProgress(record)) throw new Error("熟练度记录格式不正确，未替换现有记录");
       records[id] = { ...Scheduler.emptyRecord(), ...record, history: Array.isArray(record.history) ? record.history.filter((item) => item && ["correct", "wrong", "uncertain"].includes(item.grade) && Number.isFinite(item.at)).slice(-500) : [] };
     }
-    const imported = { ...blankState(), target: [3, 4, 5, 6, 7].includes(data.target) ? data.target : 5, selected: validSelection(data.selected) ? data.selected : 1,
+    const imported = { ...blankState(), target: Scheduler.validTarget(data.target) ? data.target : 5, selected: validSelection(data.selected) ? data.selected : 1,
       lastList: validSelection(data.lastList) && data.lastList !== "daily" ? data.lastList : 1, audio: cleanAudio(data.audio), records,
       studyDayRule: data.studyDayRule || null, appliedUpdates: Array.isArray(data.appliedUpdates) ? data.appliedUpdates : [],
       list2Repair: data.list2Repair || null, beforeDayUpdate: data.beforeDayUpdate || null };
@@ -482,7 +486,8 @@
   });
   $("mastery-target").addEventListener("change", (event) => {
     if (cloudBlocked) { event.target.value = String(state.target); notify("请先完成同步或处理记录冲突。"); return; }
-    state.target = Number(event.target.value); save(); render(); notify(`掌握目标已设为 ${state.target} 次连续正确。`);
+    if (!Scheduler.validTarget(Number(event.target.value))) return;
+    state.target = Number(event.target.value); save(); render(); notify(`掌握目标已设为 ${state.target} 级熟练度。`);
   });
   $("study-time-zone").addEventListener("change", (event) => {
     const next = Scheduler.normalizeTimeZone(event.target.value);
@@ -535,7 +540,7 @@
     if (event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
     if (currentView !== "study" || !session || session.index >= session.ids.length || event.target.closest("input, select, textarea") || event.target.isContentEditable) return;
     if (event.code === "Space" && event.target.closest(".icon-button")) return;
-    const grade = { Digit1: "wrong", Numpad1: "wrong", Digit2: "uncertain", Numpad2: "uncertain", Digit3: "correct", Numpad3: "correct" }[event.code];
+    const grade = { Digit1: "wrong", Numpad1: "wrong", Digit2: "uncertain", Numpad2: "uncertain", Digit3: "correct", Numpad3: "correct", Digit4: "slow", Numpad4: "slow" }[event.code];
     if (event.code !== "Space" && !grade) return;
     event.preventDefault();
     if (event.repeat) return;

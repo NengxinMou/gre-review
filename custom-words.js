@@ -1,9 +1,10 @@
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory();
-  else root.GreCustomWords = factory();
-})(typeof window !== "undefined" ? window : globalThis, function () {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./scheduler.js"));
+  else root.GreCustomWords = factory(root.GreScheduler);
+})(typeof window !== "undefined" ? window : globalThis, function (Scheduler) {
   "use strict";
   const clone = (value) => JSON.parse(JSON.stringify(value));
+  const validTarget = (value) => Number.isInteger(value) && value >= 3 && value <= 7;
   const normalize = (text) => text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
   function validate(data) {
     if (data?.format !== "gre-custom-words-v1" || !Array.isArray(data.words) || data.words.length > 5000 || !data.records || typeof data.records !== "object" || Array.isArray(data.records)) throw new Error("不是有效的自建生词备份");
@@ -17,15 +18,16 @@
     for (const [id, r] of Object.entries(data.records)) {
       if (!ids.has(id) || !r || !["attempts", "correct", "wrong", "uncertain", "streak"].every((k) => Number.isSafeInteger(r[k]) && r[k] >= 0) || r.attempts !== r.correct + r.wrong + r.uncertain || !Array.isArray(r.history) || r.history.length > 500 || r.history.some((h) => !h || !Number.isFinite(h.at) || !["correct", "wrong", "uncertain"].includes(h.grade)) || ["last", "due", "lastAdvanceDay", "lastRecallDay"].some((k) => r[k] != null && !Number.isFinite(r[k]))) throw new Error("复习记录校验失败，未替换现有记录");
       records[id] = clone(r);
+      if (!Scheduler.validProgress(r)) throw new Error("熟练度记录格式不正确，未替换现有记录");
     }
-    const target = [3, 4, 5, 6, 7].includes(data.target) ? data.target : 5;
+    const target = validTarget(data.target) ? data.target : 5;
     return { format: "gre-custom-words-v1", words, records, target, session: null, muted: data.muted !== false };
   }
   function shared(state) {
     return { version: 1, target: state.target, records: Object.fromEntries(state.words.map((word) => [word.id, { word: { id: word.id, word: word.word, meaning: word.meaning, note: word.note, archived: word.archived }, record: clone(state.records[word.id] || null) }])) };
   }
   function fromShared(data) {
-    if (!data || data.version !== 1 || ![3, 4, 5, 6, 7].includes(data.target) || !data.records || typeof data.records !== "object" || Array.isArray(data.records) || Object.keys(data).some((k) => !["version", "target", "records", "studyDayRule", "appliedUpdates", "list2Repair", "beforeDayUpdate"].includes(k))) throw new Error("云端生词格式不正确");
+    if (!data || data.version !== 1 || !validTarget(data.target) || !data.records || typeof data.records !== "object" || Array.isArray(data.records) || Object.keys(data).some((k) => !["version", "target", "records", "studyDayRule", "appliedUpdates", "list2Repair", "beforeDayUpdate"].includes(k))) throw new Error("云端生词格式不正确");
     if (["studyDayRule", "appliedUpdates", "list2Repair", "beforeDayUpdate"].some((k) => data[k] != null)) throw new Error("云端生词包含不支持的字段");
     const words = [], records = {};
     for (const [id, bundle] of Object.entries(data.records)) {
@@ -112,10 +114,10 @@
       undo() { const result = scheduler.undoAnswer(state); if (result) save(); return result; },
       end() { state.session = null; save(); },
       mute(value) { state.muted = !!value; save(false); },
-      target(value) { if (![3, 4, 5, 6, 7].includes(value)) return; state.target = value; save(); },
+      target(value) { if (!validTarget(value)) return; state.target = value; save(); },
       import(data) { const next = validate(data); lastSaved = storage.getItem(key); state = next; blocked = false; save(); },
       exportText() { return blocked ? storage.getItem(key) : JSON.stringify({ ...state, session: null, exportedAt: new Date().toISOString() }, null, 2); }
     };
   }
-  return { create, validate, normalize, shared, fromShared, validShared, duplicateConflicts };
+  return { create, validate, normalize, shared, fromShared, validShared, duplicateConflicts, validProgress: Scheduler.validProgress };
 });

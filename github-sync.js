@@ -13,7 +13,7 @@
   const decode = (value) => Uint8Array.from(atob(value.replace(/\s/g, "")), (c) => c.charCodeAt(0));
   const textBytes = (value) => new TextEncoder().encode(value);
   function validState(state) {
-    if (!state || state.version !== 1 || ![3, 4, 5, 6, 7].includes(state.target) || !state.records || typeof state.records !== "object" || Array.isArray(state.records)) return false;
+    if (!state || state.version !== 1 || !Number.isInteger(state.target) || state.target < 3 || state.target > 7 || !state.records || typeof state.records !== "object" || Array.isArray(state.records)) return false;
     if (state.studyDayRule !== "local-04:00-v1" || !Array.isArray(state.appliedUpdates) || !state.appliedUpdates.includes("list2-two-to-one-20261001")) return false;
     if (Object.keys(state).some((key) => !["version", "records", "target", "studyDayRule", "appliedUpdates", "list2Repair", "beforeDayUpdate"].includes(key))) return false;
     for (const [id, r] of Object.entries(state.records)) {
@@ -21,6 +21,7 @@
       if (!match || +match[1] < 1 || +match[1] > 30 || +match[2] < 1 || +match[2] > 50) return false;
       if (!r || !["attempts", "correct", "wrong", "uncertain", "streak"].every((key) => Number.isSafeInteger(r[key]) && r[key] >= 0)) return false;
       if (r.attempts !== r.correct + r.wrong + r.uncertain || !Array.isArray(r.history)) return false;
+      if (!customAPI.validProgress(r)) return false;
       if (r.history.some((h) => !h || !["correct", "wrong", "uncertain"].includes(h.grade) || !Number.isFinite(h.at))) return false;
       if (["due", "last", "lastAdvanceDay", "lastRecallDay"].some((key) => r[key] != null && !Number.isFinite(r[key]))) return false;
     }

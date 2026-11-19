@@ -33,7 +33,7 @@
     list.slice().reverse().forEach((w) => {
       const row = node("div", undefined, "question-list-row"), content = node("div", undefined, "question-list-content"), r = state.records[w.id];
       content.append(node("strong", w.word), node("p", w.meaning)); if (w.note) content.append(node("small", w.note));
-      const status = S.status(r, now, state.target, tz); content.append(node("p", `${({ new: "新词", due: "到期", waiting: "等待复习", mastered: "已掌握" })[status]} · 连续 ${r?.streak || 0}/${state.target} · 忘了 ${r?.wrong || 0} · 不确定 ${r?.uncertain || 0}`, "custom-record"));
+      const status = S.status(r, now, state.target, tz); content.append(node("p", `${({ new: "新词", due: "到期", waiting: "等待复习", mastered: "已掌握" })[status]} · 熟练度 ${S.mastery(r)}/${state.target} · 忘了 ${r?.wrong || 0} · 不确定 ${r?.uncertain || 0}`, "custom-record"));
       const tools = node("div", undefined, "question-list-actions"); tools.append(button("pencil", `编辑 ${w.word}`, () => openForm(w)), button(w.archived ? "archive-restore" : "archive", `${w.archived ? "恢复" : "归档"} ${w.word}`, () => { if (!confirm(w.archived ? "恢复这个词到复习队列？" : "归档后停止复习，保留释义和历史，可随时恢复。继续吗？")) return; model.archive(w.id, !w.archived); render(); }));
       row.append(content, tools); container.append(row);
     }); window.lucide?.createIcons();
@@ -45,14 +45,14 @@
     if (!w) {
       audio.stop(); spoken = ""; $("custom-progress").textContent = "本轮完成"; $("custom-card-word").textContent = "这一轮完成了";
       $("custom-answer").hidden = true; $("custom-reveal").hidden = true; $("custom-grades").hidden = true;
-      $("custom-card-stat").textContent = session ? `记住 ${session.scores.correct} · 不确定 ${session.scores.uncertain} · 忘了 ${session.scores.wrong}` : ""; return;
+      $("custom-card-stat").textContent = session ? `迅速想起 ${session.scores.correct} · 不熟 ${session.scores.slow || 0} · 不确定 ${session.scores.uncertain} · 忘了 ${session.scores.wrong}` : ""; return;
     }
     $("custom-progress").textContent = `${session.index + 1} / ${session.ids.length}`; $("custom-card-word").textContent = w.word;
     $("custom-card-meaning").textContent = w.meaning; $("custom-card-note").textContent = w.note;
     $("custom-answer").hidden = !session.revealed; $("custom-reveal").hidden = session.revealed; $("custom-grades").hidden = !session.revealed;
     const r = state.records[w.id] || S.emptyRecord();
-    $("custom-credit").textContent = S.canAdvance(r, Date.now(), !session.ids.slice(0, session.index).includes(w.id), zone()) ? "计入连续正确" : "只巩固，不计进度";
-    $("custom-card-stat").textContent = `连续 ${r.streak}/${state.target} · 忘了 ${r.wrong} · 不确定 ${r.uncertain}`;
+    $("custom-credit").textContent = S.canAdvance(r, Date.now(), !session.ids.slice(0, session.index).includes(w.id), zone()) ? "熟练度 +1 级" : "只巩固，不计进度";
+    $("custom-card-stat").textContent = `熟练度 ${S.mastery(r)}/${state.target} · 忘了 ${r.wrong} · 不确定 ${r.uncertain}`;
     const token = `${session.startedAt}:${session.index}:${w.word}`;
     if (active && spoken !== token) { spoken = token; audio.speak(w); }
   }
@@ -111,7 +111,7 @@
   document.addEventListener("keydown", (event) => {
     if (!active || screen !== "practice" || event.defaultPrevented || event.repeat || event.isComposing || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || event.target.closest("input,textarea,select,.icon-button") || event.target.isContentEditable) return;
     const s = model.read().session; if (!s || s.index >= s.ids.length) return;
-    const grade = { Digit1: "wrong", Numpad1: "wrong", Digit2: "uncertain", Numpad2: "uncertain", Digit3: "correct", Numpad3: "correct" }[event.code];
+    const grade = { Digit1: "wrong", Numpad1: "wrong", Digit2: "uncertain", Numpad2: "uncertain", Digit3: "correct", Numpad3: "correct", Digit4: "slow", Numpad4: "slow" }[event.code];
     if (event.code === "Space" && !s.revealed) { event.preventDefault(); $("custom-reveal").click(); }
     else if (grade && s.revealed) { event.preventDefault(); document.querySelector(`[data-custom-grade="${grade}"]`).click(); }
   });
