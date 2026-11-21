@@ -7,6 +7,16 @@
   const fields = ["target", "studyDayRule", "appliedUpdates", "list2Repair", "beforeDayUpdate"];
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  function errorMessage(error, phase) {
+    const step = ({ read: "读取云端", merge: "合并记录", cache: "保存本机同步缓存", upload: "上传进度" })[phase] || "同步";
+    if (["QuotaExceededError", "NS_ERROR_DOM_QUOTA_REACHED"].includes(error?.name)) return `${step}失败：浏览器保存空间不足。请先导出学习备份，不要清除网站数据。`;
+    if (error?.name === "SecurityError") return `${step}失败：浏览器禁止保存数据。请检查是否使用了无痕浏览或限制网站存储。`;
+    if (error?.name === "AbortError") return `${step}超时；本机记录保留，可点击重试。`;
+    if (typeof error?.message === "string" && /[\u3400-\u9fff]/.test(error.message)) return `${step}失败：${error.message}`;
+    if (error?.name === "SyntaxError") return `${step}失败：收到的数据无法解析，未继续上传。请重试；持续出现时需要检查网页或云端文件格式。`;
+    const kind = ["TypeError", "ReferenceError", "RangeError", "InvalidStateError"].includes(error?.name) ? `（${error.name}）` : "";
+    return `${step}失败：网页处理异常${kind}。本机记录保留，请反馈这条完整提示。`;
+  }
   function snapshot(state) {
     const result = { version: 1, records: clone(state.records) };
     fields.forEach((key) => { result[key] = state[key] ?? null; });
@@ -29,11 +39,12 @@
     return { value: result, conflicts };
   }
 
-  function create({ read, apply, storage, fetch: request, onStatus, storageKey = KEY, changeDelayMs = 0, validateMerged = () => [] }) {
+  function create({ read, apply, storage, fetch: request, onStatus, storageKey = KEY, changeDelayMs = 0, validateMerged = () => [], requestTimeoutMs = 15000 }) {
+    const timeoutMs = Number.isFinite(requestTimeoutMs) ? Math.min(60000, Math.max(1000, requestTimeoutMs)) : 15000;
     const conflictKey = storageKey === KEY ? "gre-cloud-conflict-backup-v1" : `${storageKey}:conflict`;
     let changeTimer;
     let base = null, revision = 0, busy = false, again = false, conflict = null;
-    let ready = false, error = "", retryAt = 0;
+    let ready = false, error = "", retryAt = 0, phase = "read";
     try {
       const saved = JSON.parse(storage.getItem(storageKey));
       if (saved?.base?.version === 1 && Number.isInteger(saved.revision)) { base = saved.base; revision = saved.revision; ready = true; }
@@ -44,7 +55,7 @@
     function persist() { storage.setItem(storageKey, JSON.stringify({ revision, base })); }
     async function call(method, body) {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
       try {
         const response = await request("/api/progress", { method, credentials: "same-origin", cache: "no-store", redirect: "manual", signal: controller.signal,
           headers: { "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
@@ -63,7 +74,9 @@
       if (!force && Date.now() < retryAt) return;
       busy = true; error = ""; status();
       try {
+        phase = "read";
         const remote = await call("GET");
+        phase = "merge";
         const local = read();
         if (remote.state) {
           const merged = !base && !Object.keys(local.records).length
@@ -75,6 +88,7 @@
           }
           apply(merged.value);
           base = clone(remote.state); revision = remote.revision;
+          phase = "cache";
           persist();
         } else if (revision !== 0) {
           throw new Error("云端记录暂不可读，未覆盖或清空任何记录。");
@@ -82,14 +96,15 @@
         ready = true;
         const payload = read();
         if (!remote.state || !same(payload, base)) {
+          phase = "upload";
           const result = await call("PUT", { revision, state: payload });
           if (result.conflict) { again = true; return; }
-          base = clone(payload); revision = result.revision; persist();
+          base = clone(payload); revision = result.revision; phase = "cache"; persist();
           if (!same(read(), base)) again = true;
         }
         retryAt = 0;
       } catch (e) {
-        error = e.name === "AbortError" ? "同步超时，记录仍保存在本机，联网后会重试。" : /[\u3400-\u9fff]/.test(e.message) ? e.message : "网络暂不可用，记录仍保存在本机，联网后会重试。";
+        error = errorMessage(e, phase);
         ready = true; retryAt = Date.now() + 10000;
       }
       finally {
@@ -123,5 +138,5 @@
       else void sync();
     }, getBackup() { return storage.getItem(conflictKey); } };
   }
-  return { snapshot, merge, create };
+  return { snapshot, merge, create, errorMessage };
 });

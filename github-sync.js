@@ -40,12 +40,17 @@
     const baseURL = `https://api.github.com/repos/${owner}/${REPO}`;
     let observed = null, branch = null, allowCreate = custom;
     async function api(path, options = {}) {
-      const response = await request(baseURL + path, {
+      let response;
+      try { response = await request(baseURL + path, {
         ...options, credentials: "omit", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
         headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2026-03-10", Authorization: `Bearer ${token}`, ...(options.body ? { "Content-Type": "application/json" } : {}) }
-      });
+      }); } catch (error) {
+        if (error?.name === "AbortError") throw error;
+        throw new Error(options.method === "PUT" ? "连接 GitHub 保存接口失败。读取成功不代表上传链路正常；本机记录保留，可稍后重试。" : "连接 GitHub 读取接口失败。网页能打开不代表进度接口可达；本机记录保留，可稍后重试。");
+      }
       if (response.status === 401) throw new Error("GitHub 授权已失效。请更新授权；学习记录已保留。");
-      if (response.status === 403 || response.status === 429) throw new Error("GitHub 暂时拒绝访问，请检查授权权限或稍后重试。学习记录已保留。");
+      if (response.status === 429 || (response.status === 403 && (response.headers.get("x-ratelimit-remaining") === "0" || response.headers.has("retry-after")))) throw new Error("GitHub 请求过于频繁，已暂时限流。请稍后重试，勿连续点击；本机记录已保留。");
+      if (response.status === 403) throw new Error(options.method === "PUT" ? "GitHub 允许读取但拒绝保存（403）。请确认当前授权对 gre-review-data 的 Contents 权限是 Read and write，且没有分支写入限制；本机记录已保留。" : "GitHub 拒绝读取（403）。请检查授权范围，或稍后重试；本机记录已保留。");
       return response;
     }
     async function json(response) {

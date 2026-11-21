@@ -79,6 +79,7 @@
       model.prepareCloud();
       syncBlocked = true;
       cloud = window.GreSync.create({ storage: localStorage, storageKey: event.detail.storageKey, fetch: event.detail.fetch, changeDelayMs: 1500,
+        requestTimeoutMs: event.detail.requestTimeoutMs,
         read: () => window.GreSync.snapshot(model.shared()),
         validateMerged: window.GreCustomWords.duplicateConflicts,
         apply(shared) { model.applyShared(shared); if (active) render(); },

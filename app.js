@@ -561,7 +561,7 @@
     $("backup-description").textContent = "进度自动同步；发音偏好、当前练习和撤回留在本机。首次迁移请导入原网页的备份。";
     cloud = window.GreSync.create({
       read: () => window.GreSync.snapshot(state), storage: localStorage, fetch: options.fetch || window.fetch.bind(window),
-      storageKey: options.storageKey, changeDelayMs: options.changeDelayMs,
+      storageKey: options.storageKey, changeDelayMs: options.changeDelayMs, requestTimeoutMs: options.requestTimeoutMs,
       apply(shared) {
         const changed = new Set([...Object.keys(state.records), ...Object.keys(shared.records)].filter((id) => JSON.stringify(state.records[id]) !== JSON.stringify(shared.records[id])));
         if (state.session?.undo?.some((item) => changed.has(item.id))) {

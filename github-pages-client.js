@@ -30,7 +30,7 @@
   }
   renderAuthorization();
   async function preflight(transport) {
-    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15000);
+    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 45000);
     try { return await transport.read(controller.signal); }
     finally { clearTimeout(timeout); }
   }
@@ -70,9 +70,9 @@
     renderAuthorization();
     $("github-auth-status").textContent = connectedMessage();
     $("sync-now").hidden = false;
-    window.dispatchEvent(new CustomEvent("gre-sync-connect", { detail: { fetch: transport.fetch, storageKey: transport.storageKey, changeDelayMs: 1500, pollMs: 30000 } }));
+    window.dispatchEvent(new CustomEvent("gre-sync-connect", { detail: { fetch: transport.fetch, storageKey: transport.storageKey, changeDelayMs: 1500, pollMs: 30000, requestTimeoutMs: 45000 } }));
     const customTransport = API.create({ owner: sealed.owner, token, fetch: window.fetch.bind(window), dataset: "custom" });
-    window.dispatchEvent(new CustomEvent("gre-custom-sync-connect", { detail: { fetch: customTransport.fetch, storageKey: customTransport.storageKey } }));
+    window.dispatchEvent(new CustomEvent("gre-custom-sync-connect", { detail: { fetch: customTransport.fetch, storageKey: customTransport.storageKey, requestTimeoutMs: 45000 } }));
     if (!automatic) await setRemembered($("github-remember").checked);
     return true;
   }
