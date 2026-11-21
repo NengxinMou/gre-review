@@ -39,20 +39,95 @@
     return { value: result, conflicts };
   }
 
-  function create({ read, apply, storage, fetch: request, onStatus, storageKey = KEY, changeDelayMs = 0, validateMerged = () => [], requestTimeoutMs = 15000 }) {
+  function indexedDBStorage(host, storageKey) {
+    if (!/^gre-github-sync-v1:[a-z0-9-]+\/gre-review-data(?::custom-words)?$/.test(storageKey)) throw new Error("同步缓存编号不正确");
+    const conflictKey = `${storageKey}:conflict`;
+    function valid(key, raw) {
+      if (raw == null) return;
+      const value = JSON.parse(raw);
+      const state = (s) => s?.version === 1 && s.records && typeof s.records === "object" && !Array.isArray(s.records);
+      if (key === storageKey ? !state(value?.base) || !Number.isSafeInteger(value.revision) || value.revision < 0 : !state(value?.local) || !state(value?.remote)) throw new Error("原同步缓存格式异常，已停止迁移；请先导出备份");
+    }
+    async function access(key, value, write = false) {
+      if (!host.indexedDB) throw new Error("浏览器未提供同步缓存存储，请先导出备份并使用普通浏览窗口");
+      return new Promise((resolve, reject) => {
+        let db, transaction, result, done = false;
+        const timer = host.setTimeout(() => finish(new Error("同步缓存存储超时，请重试；原记录保留")), 10000);
+        function finish(error) {
+          if (done) return; done = true; host.clearTimeout(timer);
+          if (error) { try { transaction?.abort(); } catch (_) {} }
+          db?.close(); error ? reject(error) : resolve(result ?? null);
+        }
+        let opening;
+        try { opening = host.indexedDB.open("gre-sync-checkpoints-v1", 1); }
+        catch (error) { finish(error); return; }
+        opening.onupgradeneeded = () => opening.result.createObjectStore("checkpoints");
+        opening.onerror = () => finish(opening.error);
+        opening.onblocked = () => finish(new Error("同步缓存存储被其他页面占用，请关闭重复背词标签后重试"));
+        opening.onsuccess = () => {
+          db = opening.result;
+          if (done) { db.close(); return; }
+          db.onversionchange = () => db.close();
+          try {
+            transaction = db.transaction("checkpoints", write ? "readwrite" : "readonly");
+            const store = transaction.objectStore("checkpoints");
+            const request = write ? store.put(value, key) : store.get(key);
+            request.onsuccess = () => { result = write ? value : request.result; };
+            transaction.oncomplete = () => finish();
+            transaction.onerror = () => finish(transaction.error);
+            transaction.onabort = () => finish(transaction.error || new Error("同步缓存写入中断，原记录保留"));
+          } catch (error) { finish(error); }
+        };
+      });
+    }
+    function checkKey(key) { if (![storageKey, conflictKey].includes(key)) throw new Error("拒绝修改非同步缓存数据"); }
+    return {
+      async getItem(key) {
+        checkKey(key);
+        const legacy = host.localStorage.getItem(key), saved = await access(key);
+        valid(key, legacy); valid(key, saved);
+        if (legacy == null) return saved;
+        let chosen = legacy;
+        if (saved != null) {
+          if (key === conflictKey && saved !== legacy) return saved; // Keep both backups; do not delete the older local copy.
+          if (key === storageKey && JSON.parse(saved).revision >= JSON.parse(legacy).revision) chosen = saved;
+        }
+        await access(key, chosen, true);
+        if (await access(key) !== chosen) throw new Error("同步缓存迁移核对失败，原缓存未删除");
+        // Delete only this exact redundant cache after a committed write and read-back.
+        if (host.localStorage.getItem(key) === legacy) host.localStorage.removeItem(key);
+        return chosen;
+      },
+      async setItem(key, value) { checkKey(key); valid(key, value); await access(key, value, true); }
+    };
+  }
+
+  function create({ read, apply, storage, fetch: request, onStatus, storageKey = KEY, changeDelayMs = 0, validateMerged = () => [], requestTimeoutMs = 15000, checkpointStorage = null }) {
     const timeoutMs = Number.isFinite(requestTimeoutMs) ? Math.min(60000, Math.max(1000, requestTimeoutMs)) : 15000;
     const conflictKey = storageKey === KEY ? "gre-cloud-conflict-backup-v1" : `${storageKey}:conflict`;
     let changeTimer;
     let base = null, revision = 0, busy = false, again = false, conflict = null;
     let ready = false, error = "", retryAt = 0, phase = "read";
+    let initialized = !checkpointStorage, initializing = null, backup = null;
     try {
-      const saved = JSON.parse(storage.getItem(storageKey));
+      const saved = checkpointStorage ? null : JSON.parse(storage.getItem(storageKey));
       if (saved?.base?.version === 1 && Number.isInteger(saved.revision)) { base = saved.base; revision = saved.revision; ready = true; }
     } catch (_) {}
     function status() {
       onStatus({ busy, ready, error, conflict: conflict?.conflicts || [], pending: !base || !same(read(), base) });
     }
-    function persist() { storage.setItem(storageKey, JSON.stringify({ revision, base })); }
+    async function initialize() {
+      if (initialized) return;
+      if (!initializing) initializing = (async () => {
+        const raw = await checkpointStorage.getItem(storageKey);
+        backup = await checkpointStorage.getItem(conflictKey);
+        const saved = raw ? JSON.parse(raw) : null;
+        if (saved?.base?.version === 1 && Number.isInteger(saved.revision)) { base = saved.base; revision = saved.revision; }
+        initialized = true;
+      })();
+      try { await initializing; } catch (error) { initializing = null; throw error; }
+    }
+    async function persist(nextBase, nextRevision) { await (checkpointStorage || storage).setItem(storageKey, JSON.stringify({ revision: nextRevision, base: nextBase })); }
     async function call(method, body) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -74,6 +149,8 @@
       if (!force && Date.now() < retryAt) return;
       busy = true; error = ""; status();
       try {
+        phase = "cache";
+        await initialize();
         phase = "read";
         const remote = await call("GET");
         phase = "merge";
@@ -87,9 +164,9 @@
             ready = true; return;
           }
           apply(merged.value);
-          base = clone(remote.state); revision = remote.revision;
           phase = "cache";
-          persist();
+          await persist(remote.state, remote.revision);
+          base = clone(remote.state); revision = remote.revision;
         } else if (revision !== 0) {
           throw new Error("云端记录暂不可读，未覆盖或清空任何记录。");
         }
@@ -99,7 +176,8 @@
           phase = "upload";
           const result = await call("PUT", { revision, state: payload });
           if (result.conflict) { again = true; return; }
-          base = clone(payload); revision = result.revision; phase = "cache"; persist();
+          phase = "cache"; await persist(payload, result.revision);
+          base = clone(payload); revision = result.revision;
           if (!same(read(), base)) again = true;
         }
         retryAt = 0;
@@ -115,19 +193,23 @@
     async function resolve(preference) {
       if (!conflict || busy || !["local", "remote"].includes(preference)) return;
       // Retain both sides before an explicit choice. Only conflicting fields use the chosen side.
-      try { storage.setItem(conflictKey, JSON.stringify({ at: Date.now(), ...conflict })); }
-      catch (_) { error = "无法保存冲突备份，请先导出本机记录。"; status(); return; }
-      const chosen = clone(conflict.value);
-      for (const key of conflict.conflicts) {
-        const side = conflict[preference];
-        if (fields.includes(key)) chosen[key] = side[key];
-        else if (side.records[key] === undefined) delete chosen.records[key];
-        else chosen.records[key] = clone(side.records[key]);
-      }
-      apply(chosen);
-      base = clone(conflict.remote); revision = conflict.revision;
-      conflict = null;
-      persist();
+      busy = true; status();
+      try {
+        const rawBackup = JSON.stringify({ at: Date.now(), ...conflict });
+        try { await (checkpointStorage || storage).setItem(conflictKey, rawBackup); backup = rawBackup; }
+        catch (_) { error = "无法保存冲突备份，请先导出本机记录。"; return; }
+        const chosen = clone(conflict.value);
+        for (const key of conflict.conflicts) {
+          const side = conflict[preference];
+          if (fields.includes(key)) chosen[key] = side[key];
+          else if (side.records[key] === undefined) delete chosen.records[key];
+          else chosen.records[key] = clone(side.records[key]);
+        }
+        apply(chosen);
+        await persist(conflict.remote, conflict.revision);
+        base = clone(conflict.remote); revision = conflict.revision;
+        conflict = null;
+      } finally { busy = false; status(); }
       await sync(true);
     }
     status();
@@ -136,7 +218,7 @@
       if (busy) again = true;
       else if (changeDelayMs) { clearTimeout(changeTimer); changeTimer = setTimeout(() => void sync(), changeDelayMs); }
       else void sync();
-    }, getBackup() { return storage.getItem(conflictKey); } };
+    }, getBackup() { return checkpointStorage ? backup : storage.getItem(conflictKey); } };
   }
-  return { snapshot, merge, create, errorMessage };
+  return { snapshot, merge, create, errorMessage, indexedDBStorage };
 });

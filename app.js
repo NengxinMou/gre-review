@@ -562,6 +562,7 @@
     cloud = window.GreSync.create({
       read: () => window.GreSync.snapshot(state), storage: localStorage, fetch: options.fetch || window.fetch.bind(window),
       storageKey: options.storageKey, changeDelayMs: options.changeDelayMs, requestTimeoutMs: options.requestTimeoutMs,
+      checkpointStorage: options.storageKey?.startsWith("gre-github-sync-v1:") ? window.GreSync.indexedDBStorage(window, options.storageKey) : null,
       apply(shared) {
         const changed = new Set([...Object.keys(state.records), ...Object.keys(shared.records)].filter((id) => JSON.stringify(state.records[id]) !== JSON.stringify(shared.records[id])));
         if (state.session?.undo?.some((item) => changed.has(item.id))) {

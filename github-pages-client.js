@@ -64,6 +64,10 @@
       }
       transport.allowInitialization();
     }
+    // Free only verified redundant checkpoints before saving authorization or progress.
+    await window.GreSync.indexedDBStorage(window, transport.storageKey).getItem(transport.storageKey);
+    const customCacheKey = `${transport.storageKey}:custom-words`;
+    await window.GreSync.indexedDBStorage(window, customCacheKey).getItem(customCacheKey);
     localStorage.setItem(VAULT_KEY, JSON.stringify(sealed));
     vault = sealed; connected = true; activeToken = token;
     $("github-token").value = ""; $("github-password").value = "";
