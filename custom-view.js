@@ -3,6 +3,8 @@
   const $ = (id) => document.getElementById(id), S = window.GreScheduler;
   const base = document.querySelector('meta[name="gre-storage-key"]')?.content || "gre-1500-meaning-review-v1";
   const key = `${base}:custom-words-v1`;
+  const { normalize } = window.GreCustomWords;
+  const duplicateDialog = $("custom-duplicate-dialog");
   let active = false, editing = null, screen = "home", spoken = "", cloud = null, syncBlocked = false;
   function message(text) { $("custom-status").textContent = text; }
   const model = window.GreCustomWords.create({ storage: { getItem: (k) => localStorage.getItem(k), setItem: (k, v) => localStorage.setItem(k, v) }, key, scheduler: S, uuid: () => crypto.randomUUID(), onError: message, onChange: () => cloud?.changed() });
@@ -12,8 +14,77 @@
   function run(fn, allowBlocked = false) { try { if (syncBlocked && !allowBlocked) throw new Error("请先完成生词同步或处理生词冲突，已有记录仍保留。"); fn(); } catch (error) { message(error.message); } }
   function button(icon, label, handler) { const b = node("button", undefined, "icon-button"), i = node("i"); i.dataset.lucide = icon; b.type = "button"; b.title = label; b.setAttribute("aria-label", label); b.append(i); b.onclick = () => run(handler); return b; }
   function openForm(word) {
-    editing = word?.id || null; $("custom-form").hidden = false; $("custom-form-title").textContent = word ? "编辑生词（保留进度）" : "添加生词";
+    editing = word || null; $("custom-form").hidden = false; $("custom-form-title").textContent = word ? "编辑生词（保留进度）" : "添加生词";
     $("custom-word").value = word?.word || ""; $("custom-meaning").value = word?.meaning || ""; $("custom-note").value = word?.note || ""; $("custom-word").focus();
+  }
+  function draft() {
+    return { word: $("custom-word").value.trim(), meaning: $("custom-meaning").value.trim(), note: $("custom-note").value.trim() };
+  }
+  function officialMatches(word) {
+    const name = normalize(word);
+    if (editing && normalize(editing.word) === name) return [];
+    return (window.GRE_WORDS || []).filter((item) => normalize(item.word) === name);
+  }
+  function showDuplicates(official, existing) {
+    const results = $("custom-duplicate-matches");
+    results.replaceChildren();
+    function addMatch(word, source) {
+      const row = node("li");
+      row.append(node("strong", word.word), node("small", source), node("p", word.meaning));
+      results.append(row);
+    }
+    if (existing) addMatch(existing, existing.archived ? "自建生词 · 已归档" : "自建生词 · 在背");
+    for (const word of official) addMatch(word, `1500 词表 · List ${word.list} · 第 ${word.number} 词`);
+    $("custom-duplicate-detail").textContent = existing
+      ? "可以把这次输入的释义和备注补充到已有生词。"
+      : "词表里已经有这个词。遇到新的义项时，可以继续保存为自建生词。";
+    $("custom-duplicate-edit").hidden = !existing;
+    $("custom-duplicate-continue").hidden = !!existing;
+    $("custom-duplicate-continue").textContent = editing ? "仍然保存" : "仍然添加";
+    $("custom-duplicate-error").hidden = true;
+    if (!duplicateDialog.open) duplicateDialog.showModal();
+  }
+  function saveDraft(acceptOfficialMatch = false) {
+    const input = draft();
+    if (!input.word || !input.meaning) throw new Error("请填写单词和中文释义");
+    const existing = model.findDuplicate(input.word, editing?.id);
+    const official = officialMatches(input.word);
+    if (existing || (official.length && !acceptOfficialMatch)) {
+      showDuplicates(official, existing);
+      return;
+    }
+    model.upsert(input, editing?.id);
+    if (duplicateDialog.open) duplicateDialog.close();
+    $("custom-form").hidden = true;
+    editing = null;
+    render();
+    $("custom-add").focus();
+  }
+  function addToExisting() {
+    const input = draft();
+    const existing = model.findDuplicate(input.word, editing?.id);
+    if (!existing) throw new Error("原生词已更新，请返回编辑后重新检查。");
+    const append = (current, extra) => extra && current !== extra ? [current, extra].filter(Boolean).join("\n") : current;
+    const meaning = append(existing.meaning, input.meaning);
+    const note = append(existing.note, input.note);
+    if (meaning.length > $("custom-meaning").maxLength || note.length > $("custom-note").maxLength) {
+      throw new Error("合并后的内容太长，请返回缩短这次输入的释义或备注。");
+    }
+    duplicateDialog.close();
+    openForm(existing);
+    $("custom-meaning").value = meaning;
+    $("custom-note").value = note;
+    if (existing.archived) $("custom-form-title").textContent = "编辑已归档生词（保留进度）";
+    $("custom-meaning").focus();
+  }
+  function runDuplicateAction(action) {
+    try {
+      if (syncBlocked) throw new Error("请先完成生词同步或处理生词冲突。");
+      action();
+    } catch (error) {
+      $("custom-duplicate-error").textContent = error.message;
+      $("custom-duplicate-error").hidden = false;
+    }
   }
   function renderHome() {
     const state = model.read(), words = state.words.filter((w) => !w.archived), now = Date.now(), tz = zone();
@@ -58,8 +129,11 @@
   }
   function render() { $("custom-home").hidden = screen !== "home"; $("custom-practice").hidden = screen !== "practice"; if (screen === "practice") renderPractice(); else { audio.stop(); spoken = ""; renderHome(); } }
   function start(all) { if (model.read().session && !confirm("替换未结束的练习？已提交记录会保留。")) return; if (model.start(Number($("custom-count").value), Date.now(), zone(), all)) { screen = "practice"; render(); } }
-  $("custom-add").onclick = () => openForm(); $("custom-cancel").onclick = () => { $("custom-form").hidden = true; editing = null; };
-  $("custom-form").onsubmit = (event) => { event.preventDefault(); run(() => { model.upsert({ word: $("custom-word").value, meaning: $("custom-meaning").value, note: $("custom-note").value }, editing); $("custom-form").hidden = true; editing = null; render(); }); };
+  $("custom-add").onclick = () => openForm(); $("custom-cancel").onclick = () => { $("custom-form").hidden = true; editing = null; $("custom-add").focus(); };
+  $("custom-form").onsubmit = (event) => { event.preventDefault(); run(() => saveDraft()); };
+  $("custom-duplicate-back").onclick = () => duplicateDialog.close();
+  $("custom-duplicate-continue").onclick = () => runDuplicateAction(() => saveDraft(true));
+  $("custom-duplicate-edit").onclick = () => runDuplicateAction(addToExisting);
   $("custom-start").onclick = () => run(() => start(false)); $("custom-all").onclick = () => run(() => start(true));
   $("custom-resume").onclick = () => { screen = "practice"; render(); }; $("custom-back").onclick = () => { screen = "home"; render(); };
   $("custom-search").oninput = renderHome; $("custom-filter").onchange = renderHome;
@@ -106,7 +180,15 @@
   $("custom-sync-before").onclick = () => run(() => download(model.beforeCloud(), "GRE生词首次同步前备份"), true);
   window.addEventListener("online", () => { void cloud?.sync(true); });
   setInterval(() => { if (document.visibilityState === "visible") void cloud?.sync(); }, 30000);
-  window.addEventListener("gre-view-change", (event) => { active = event.detail === "custom"; if (active) render(); else { audio.stop(); spoken = ""; } });
+  window.addEventListener("gre-view-change", (event) => {
+    active = event.detail === "custom";
+    if (active) render();
+    else {
+      if (duplicateDialog.open) duplicateDialog.close();
+      audio.stop();
+      spoken = "";
+    }
+  });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") { audio.stop(); spoken = ""; } else { if (active) render(); void cloud?.sync(true); } });
   window.addEventListener("pagehide", () => audio.stop());
   setInterval(() => { if (active && screen === "home" && document.visibilityState === "visible") renderHome(); }, 30000);

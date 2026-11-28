@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-title" content="GRE 复习">
   <link rel="manifest" href="manifest.webmanifest">
   <title>GRE 词义复习</title>
-  <link rel="stylesheet" href="styles.css?v=sync-cache-idb-1">
+  <link rel="stylesheet" href="styles.css?v=custom-duplicate-check-1">
 <meta name="gre-deployment" content="github-pages"><meta name="gre-storage-key" content="gre-review-github-pages-v1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src https://dict.youdao.com https://dictionary.cambridge.org; connect-src 'self' https://api.github.com; object-src 'none'; base-uri 'self'; form-action 'none'"></head>
 <body>
   <div class="app-shell">
@@ -129,6 +129,17 @@
                 <label>例句 / 来源 / 备注（选填）<textarea id="custom-note" maxlength="3000" rows="2"></textarea></label>
                 <div class="question-start-actions"><button class="primary-button" type="submit">保存生词</button><button class="outline-button" id="custom-cancel" type="button">取消</button></div>
               </form>
+              <dialog id="custom-duplicate-dialog" class="custom-duplicate-dialog" aria-labelledby="custom-duplicate-title" aria-describedby="custom-duplicate-detail">
+                <h2 id="custom-duplicate-title">发现同名词条</h2>
+                <p id="custom-duplicate-detail"></p>
+                <ul id="custom-duplicate-matches" class="custom-duplicate-matches"></ul>
+                <p id="custom-duplicate-error" role="alert" hidden></p>
+                <div class="question-start-actions">
+                  <button class="outline-button" id="custom-duplicate-back" type="button" autofocus>返回编辑</button>
+                  <button class="primary-button" id="custom-duplicate-continue" type="button">仍然添加</button>
+                  <button class="primary-button" id="custom-duplicate-edit" type="button">补充已有生词</button>
+                </div>
+              </dialog>
               <div class="filters"><input type="search" id="custom-search" aria-label="搜索自建生词" placeholder="搜索单词、释义或备注"><select id="custom-filter" aria-label="自建生词筛选"><option value="active">在背的词</option><option value="due">到期 / 新词</option><option value="mistakes">忘了 / 不确定过</option><option value="archived">已归档</option></select></div>
               <div id="custom-list"></div>
               <div class="question-backup"><button class="outline-button" id="custom-export">导出生词与进度</button><label class="outline-button file-label" for="custom-import">导入备份</label><input type="file" id="custom-import" accept="application/json,.json" hidden><label>掌握目标 <select id="custom-target" aria-label="自建生词掌握目标"><option value="3">3 级</option><option value="4">4 级</option><option value="5" selected>5 级</option><option value="6">6 级</option><option value="7">7 级</option></select></label></div>
@@ -195,16 +206,16 @@
     </div>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="words.js?v=sync-cache-idb-1"></script>
-  <script src="scheduler.js?v=sync-cache-idb-1"></script>
-  <script src="lucide.min.js?v=sync-cache-idb-1"></script>
-  <script src="pronunciation.js?v=sync-cache-idb-1"></script>
-  <script src="sync.js?v=sync-cache-idb-1"></script>
-  <script src="questions.js?v=sync-cache-idb-1"></script>
-  <script src="question-practice.js?v=sync-cache-idb-1"></script>
-  <script src="custom-words.js?v=sync-cache-idb-1"></script>
-  <script src="github-sync.js?v=sync-cache-idb-1"></script><script src="app.js?v=sync-cache-idb-1"></script>
-  <script src="question-view.js?v=sync-cache-idb-1"></script>
-  <script src="custom-view.js?v=sync-cache-idb-1"></script><script src="github-pages-client.js?v=sync-cache-idb-1"></script>
+  <script src="words.js?v=custom-duplicate-check-1"></script>
+  <script src="scheduler.js?v=custom-duplicate-check-1"></script>
+  <script src="lucide.min.js?v=custom-duplicate-check-1"></script>
+  <script src="pronunciation.js?v=custom-duplicate-check-1"></script>
+  <script src="sync.js?v=custom-duplicate-check-1"></script>
+  <script src="questions.js?v=custom-duplicate-check-1"></script>
+  <script src="question-practice.js?v=custom-duplicate-check-1"></script>
+  <script src="custom-words.js?v=custom-duplicate-check-1"></script>
+  <script src="github-sync.js?v=custom-duplicate-check-1"></script><script src="app.js?v=custom-duplicate-check-1"></script>
+  <script src="question-view.js?v=custom-duplicate-check-1"></script>
+  <script src="custom-view.js?v=custom-duplicate-check-1"></script><script src="github-pages-client.js?v=custom-duplicate-check-1"></script>
 </body>
 </html>

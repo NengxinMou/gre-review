@@ -64,12 +64,17 @@
       catch (_) { onError("无法自动保存，请保留页面并立即导出备份。"); return; }
       if (sync) onChange();
     }
+    function findDuplicate(word, exceptId) {
+      const name = normalize(word);
+      const existing = state.words.find((item) => item.id !== exceptId && normalize(item.word) === name);
+      return existing ? { ...existing } : null;
+    }
     function upsert(input, id) {
       if (blocked) throw new Error("请先导出原始备份并修复数据");
       const word = String(input.word || "").trim().replace(/\s+/g, " "), meaning = String(input.meaning || "").trim(), note = String(input.note || "").trim();
       if (!word || !meaning) throw new Error("请填写单词和中文释义");
       if (word.length > 160 || meaning.length > 2000 || note.length > 3000) throw new Error("输入内容过长");
-      if (state.words.some((w) => w.id !== id && normalize(w.word) === normalize(word))) throw new Error("这个词已在自建生词中（含归档），请编辑原条目");
+      if (findDuplicate(word, id)) throw new Error("这个词已在自建生词中（含归档），请编辑原条目");
       let existing = state.words.find((w) => w.id === id);
       if (id && !existing) throw new Error("未找到要编辑的单词");
       if (!existing) {
@@ -82,7 +87,7 @@
       if (blocked || storage.getItem(key) !== lastSaved) throw new Error("本机生词被另一页面修改或无法读取，请先导出备份再刷新");
       if (state.words.length && !storage.getItem(`${key}:before-cloud`)) storage.setItem(`${key}:before-cloud`, JSON.stringify(state));
     }
-    return { read: () => clone(state), upsert,
+    return { read: () => clone(state), upsert, findDuplicate,
       prepareCloud,
       beforeCloud() { return storage.getItem(`${key}:before-cloud`); },
       shared() { if (blocked) throw new Error("本机生词读取异常，请先导出原始备份"); return shared(state); },
